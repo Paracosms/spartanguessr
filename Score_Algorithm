@@ -25,5 +25,6 @@ def score_algorithm():
 
     # calculate score
     score = 5000 * pow(math.e, (-10 * (distance / MAX_DISTANCE)))
+    return score
 
-    print(score)
+print(score_algorithm())
