@@ -1,0 +1,29 @@
+"""
+SpartanGuessr Score Algorithm
+
+Requires:
+    - Distance calculator: use distance formula
+        - Requires scaled map with coordinate system: not implemented yet
+    - Score formula from geogeussr: 5000 * e^(-10 * (Distance / Max Distance))
+        - From "Beginner's Guide to Geoguessr", might be helpful later: https://www.plonkit.net/beginners-guide#game-mechanics
+            - "'Distance' naturally refers to the distance between the guess and the correct location. 'Max Distance' is the diagonal of the smallest rectangle possible that would contain every location in the map."
+
+"""
+
+import math
+
+def score_algorithm():
+    MAX_DISTANCE = 100 # diagonal of smallest rectangle possible that contains every location on map, ie. rectangle that surrounds sjsu campus
+
+    # calculate distance
+    guess_point = [10, 0] # need to get values from user input/stored values for correct locations later
+    correct_point = [10, 1]
+
+    distance = math.dist(guess_point, correct_point) # distance between guess and correct location
+        # previous distance formula in case math function doesnt work, need individual coordinates:
+        # distance = math.sqrt(pow((correct_x - guess_x), 2) + pow((correct_y - guess_y), 2))
+
+    # calculate score
+    score = 5000 * pow(math.e, (-10 * (distance / MAX_DISTANCE)))
+
+    print(score)
