@@ -8,6 +8,9 @@ Requires:
         - From "Beginner's Guide to Geoguessr", might be helpful later: https://www.plonkit.net/beginners-guide#game-mechanics
             - "'Distance' naturally refers to the distance between the guess and the correct location. 'Max Distance' is the diagonal of the smallest rectangle possible that would contain every location in the map."
 
+Still need to do:
+    - Input from frontend for guess_point and correct_point
+    - Calculate max distance for sjsu campus
 """
 
 import math
