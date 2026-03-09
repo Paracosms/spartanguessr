@@ -30,4 +30,5 @@ def score_algorithm():
     score = 5000 * pow(math.e, (-10 * (distance / MAX_DISTANCE)))
     return score
 
-print(score_algorithm())
+# print(score_algorithm())
+# just for debug
