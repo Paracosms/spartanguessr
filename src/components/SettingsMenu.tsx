@@ -1,10 +1,14 @@
 import Dropdown from "react-bootstrap/Dropdown";
 
-// @ts-ignore
-function SettingsMenu({ difficulty, onDifficultyChange }) {
+type SettingsMenuProps = {
+    difficulty: string;
+    onDifficultyChange: (difficulty: string) => void;
+};
+
+function SettingsMenu({ difficulty, onDifficultyChange }: SettingsMenuProps) {
     return (
-        <Dropdown onSelect={(eventKey) => onDifficultyChange(eventKey)}>
-            <Dropdown.Toggle variant="primary" id="dropdown-basic">
+        <Dropdown onSelect={(eventKey) => eventKey && onDifficultyChange(eventKey)}>
+            <Dropdown.Toggle className="difficulty-button" variant="success" id="difficulty-dropdown">
                 Difficulty: {difficulty}
             </Dropdown.Toggle>
 

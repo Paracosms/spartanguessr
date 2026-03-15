@@ -24,7 +24,11 @@ export default function StartButton() {
                 body: JSON.stringify(formData),
             });
 
-            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            if (!res.ok) {
+                console.error("FAIL", `Server error: ${res.status}`);
+                return;
+            }
+
             const result = await res.json();
             console.log("SUCCESS", result);
         } catch (err) {
@@ -33,15 +37,18 @@ export default function StartButton() {
     }
 
     return (
-        <div>
+        <div className="start-card">
+            <p className="start-card-label">Game Settings</p>
+
             <SettingsMenu difficulty={formData} onDifficultyChange={handleFormDataChange} />
 
-            <button type="button" onClick={sendToServer}>
-                Send to server
+            <button className="start-game-button" type="button" onClick={sendToServer}>
+                Start Game
             </button>
 
-            <p> JSON sent to server:</p>
-            <pre>{JSON.stringify(formData, null, 2)}</pre>
+            <p className="selection-summary">
+                Selected difficulty: {formData}
+            </p>
         </div>
     );
 }

@@ -4,15 +4,15 @@ import StartButton from "./components/StartButton.tsx";
 function App() {
 
   return (
-    <>
-        <div className="d-flex flex-column align-items-center">
-            <h1>Spartanguessr</h1>
-
-            <div className="d-flex flex-column align-items-center gap-2">
-                <StartButton/>
-            </div>
-        </div>
-    </>
+    <main className="landing-page">
+        <section>
+            <h1 className="title">Spartanguessr</h1>
+            <p className="subtitle">
+                How well do you know SJSU?
+            </p>
+            <StartButton />
+        </section>
+    </main>
   )
 }
 
