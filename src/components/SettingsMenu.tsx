@@ -5,7 +5,7 @@ type SettingsMenuProps = {
     onDifficultyChange: (difficulty: string) => void;
 };
 
-function SettingsMenu({ difficulty, onDifficultyChange }: SettingsMenuProps) {
+export default function SettingsMenu({ difficulty, onDifficultyChange }: SettingsMenuProps) {
     return (
         <Dropdown onSelect={(eventKey) => eventKey && onDifficultyChange(eventKey)}>
             <Dropdown.Toggle className="difficulty-button" variant="success" id="difficulty-dropdown">
@@ -20,6 +20,3 @@ function SettingsMenu({ difficulty, onDifficultyChange }: SettingsMenuProps) {
         </Dropdown>
     );
 }
-
-export default SettingsMenu;
-

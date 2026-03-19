@@ -1,9 +1,11 @@
 import { useState, type SetStateAction} from "react";
+import { useNavigate } from "react-router-dom";
 import SettingsMenu from "./SettingsMenu.tsx";
 
 export default function StartButton() {
 
     const [formData, setFormData] = useState("Easy")
+    const navigate = useNavigate();
 
     // below is the ideal implementation, right now i just put in a basic one that i will refactor later
 
@@ -17,6 +19,8 @@ export default function StartButton() {
     }
 
     async function sendToServer() {
+        //navigate("/game")
+
         try {
             const res = await fetch("API CALL", {
                 method: "POST",
@@ -30,10 +34,20 @@ export default function StartButton() {
             }
 
             const result = await res.json();
+
+            // TODO: handle result before proceeding to /game
+            //navigate("/game")
+
             console.log("SUCCESS", result);
         } catch (err) {
+
+
             console.error("FAIL", err);
+
+
         }
+
+
     }
 
     return (
