@@ -19,7 +19,7 @@ export default function StartButton() {
     }
 
     async function sendToServer() {
-        //navigate("/game")
+        navigate("/game")
 
         try {
             const res = await fetch("API CALL", {
