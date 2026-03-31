@@ -4,6 +4,10 @@ import mapUnlabeled from "../assets/MapUnlabeled.jpg";
 import pin from "../assets/Pin.png";
 type Point = { x: number; y: number };
 type ViewState = { scale: number; offset: Point };
+type MinimapProps = {
+    pinPosition: Point | null;
+    onPinChange: (point: Point) => void;
+};
 declare global {
     interface Window {
         debug?: boolean;
@@ -13,9 +17,9 @@ declare global {
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -650, y: -750}
 const MAP_HEIGHT = 40; // -> 40vh
+const PIN_SIZE_PX = 30;
 const INITIAL_SCALE = 1; // prod = 1.0
 const ZOOM_SPEED = 0.05;
-const PIN_SIZE_PX = 30;
 
 // Handle how far the image can be zoomed. Must be divisible by ZOOM_SPEED
 const MIN_ZOOM = 0.25;
@@ -26,7 +30,7 @@ const MINIMAP_WIDTH = 1428;
 const MINIMAP_HEIGHT = 1503;
 
 
-export default function Minimap() {
+export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
     const [view, setView] = useState<ViewState>({
@@ -34,7 +38,6 @@ export default function Minimap() {
         offset: INITIAL_MAP_POS,
     });
     const [dragging, setDragging] = useState(false);
-    const [pinPosition, setPinPosition] = useState<Point | null>(null);
     const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
     const { scale, offset } = view;
     const dragStartRef = useRef({x:0, y:0});
@@ -62,7 +65,7 @@ export default function Minimap() {
         const mouseY = round(e.clientY - rect.top, 0);
 
         // Save pin in map coordinates so it remains anchored through zooms/pans
-        setPinPosition({
+        onPinChange({
             x: clamp(round((mouseX - offset.x) / scale, 0), 0, MINIMAP_WIDTH),
             y: clamp(round((mouseY - offset.y) / scale, 0), 0, MINIMAP_HEIGHT),
         });
@@ -274,6 +277,7 @@ export default function Minimap() {
             />
         )}
     </div>
+
     </>
 }
 
