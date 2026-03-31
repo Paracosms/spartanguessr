@@ -1,10 +1,317 @@
+import { useEffect, useRef, useState } from "react";
 import mapLabeled from "../assets/MapLabeled.jpg";
 import mapUnlabeled from "../assets/MapUnlabeled.jpg";
+import pin from "../assets/Pin.png";
+type Point = { x: number; y: number };
+type ViewState = { scale: number; offset: Point };
+declare global {
+    interface Window {
+        debug?: boolean;
+    }
+}
+
+// Constants you might want to tweak
+const INITIAL_MAP_POS = {x: -650, y: -750}
+const MAP_HEIGHT = 40; // -> 40vh
+const INITIAL_SCALE = 1; // prod = 1.0
+const ZOOM_SPEED = 0.05;
+const PIN_SIZE_PX = 30;
+
+// Handle how far the image can be zoomed. Must be divisible by ZOOM_SPEED
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 2;
+
+// Minimap dimensions in px
+const MINIMAP_WIDTH = 1428;
+const MINIMAP_HEIGHT = 1503;
+
 
 export default function Minimap() {
-    return <img
-        src={mapLabeled}
-        style={{ width: "auto", height: "40vh" }}
+    // Don't tweak
+    const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
+    const [view, setView] = useState<ViewState>({
+        scale: INITIAL_SCALE,
+        offset: INITIAL_MAP_POS,
+    });
+    const [dragging, setDragging] = useState(false);
+    const [pinPosition, setPinPosition] = useState<Point | null>(null);
+    const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
+    const { scale, offset } = view;
+    const dragStartRef = useRef({x:0, y:0});
+    const dragMouseStartRef = useRef({x:0, y:0});
+    const dragMovedRef = useRef(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Place pin
+    function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+        e.preventDefault();
+
+        // Ignore the click that naturally fires after panning
+        if (dragMovedRef.current) {
+            dragMovedRef.current = false;
+            return;
+        }
+
+        // Obtain the div
+        const container = containerRef.current;
+        if (!container) return;
+
+        // Converts global to local mouse coordinates
+        const rect = container.getBoundingClientRect();
+        const mouseX = round(e.clientX - rect.left, 0);
+        const mouseY = round(e.clientY - rect.top, 0);
+
+        // Save pin in map coordinates so it remains anchored through zooms/pans
+        setPinPosition({
+            x: clamp(round((mouseX - offset.x) / scale, 0), 0, MINIMAP_WIDTH),
+            y: clamp(round((mouseY - offset.y) / scale, 0), 0, MINIMAP_HEIGHT),
+        });
+    }
+
+    // Pan
+    function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+        if (scale == MIN_ZOOM) return;
+
+        e.preventDefault();
+        setDragging(true);
+        dragMovedRef.current = false;
+        dragMouseStartRef.current = { x: e.clientX, y: e.clientY };
+
+        // Prevents image from snapping the corner to the mouse (aka allows for relative image movement)
+        // Also stores initial position of map before the pan movement
+        dragStartRef.current = {
+            x: e.clientX - offset.x,
+            y: e.clientY - offset.y,
+        };
+    }
+
+    // Zoom
+    function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
+        e.preventDefault();
+
+        // Obtain the div
+        const container = containerRef.current;
+        if (!container) return;
+
+        // Converts global to local mouse coordinates
+        const rect = container.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        setView((prev) => {
+            // Zoom in/out by ZOOM_SPEED for every scroll step
+            const direction = e.deltaY < 0 ? 1 : -1;
+            const currentStep = Math.round((prev.scale - MIN_ZOOM) / ZOOM_SPEED);
+            const nextStep = currentStep + direction;
+            const nextScale = clamp(round(MIN_ZOOM + nextStep * ZOOM_SPEED, 4), MIN_ZOOM, MAX_ZOOM);
+
+            // Avoid useless updates
+            if (nextScale === prev.scale) return prev;
+
+            // Keep the pan offset under the mouse fixed when zooming
+            const worldX = (mouseX - prev.offset.x) / prev.scale;
+            const worldY = (mouseY - prev.offset.y) / prev.scale;
+
+            const unclampedOffset = {
+                x: mouseX - worldX * nextScale,
+                y: mouseY - worldY * nextScale,
+            };
+
+            const nextOffset = clampOffset(unclampedOffset, nextScale, rect.width, rect.height);
+
+            return { scale: nextScale, offset: nextOffset };
+        });
+    }
+
+    // Listens for mouse input
+    useEffect(() => {
+        // Runs every time the mouse moves
+        function handleMouseMove(e: MouseEvent) {
+            if (!dragging) return;
+
+            // Obtain the div
+            const container = containerRef.current;
+            if (!container) return;
+
+            const rect = container.getBoundingClientRect();
+
+            const nextOffset = {
+                x: e.clientX - dragStartRef.current.x,
+                y: e.clientY - dragStartRef.current.y,
+            };
+
+            if (
+                !dragMovedRef.current &&
+                (
+                    Math.abs(e.clientX - dragMouseStartRef.current.x) > 2 ||
+                    Math.abs(e.clientY - dragMouseStartRef.current.y) > 2
+                )
+            ) {
+                dragMovedRef.current = true;
+            }
+
+            // offset.x and offset.y is updated and then used as transform parameters in the <img>
+            setView((prev) => ({
+                ...prev,
+                offset: clampOffset(nextOffset, prev.scale, rect.width, rect.height),
+            }));
+        }
+
+        function handleMouseUp() {
+            setDragging(false);
+        }
+
+        // Enable functionality even when mouse leaves <div>
+        window.addEventListener("mousemove", handleMouseMove);
+        window.addEventListener("mouseup", handleMouseUp);
+
+        // Clean up functions to remove duplicates of event listeners
+        return () => {
+            window.removeEventListener("mousemove", handleMouseMove);
+            window.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, [dragging, scale]); // Run when dragging or scale changes
+
+    // Ensure map fits within boundaries
+    useEffect(() => {
+        function reclamp() {
+            const container = containerRef.current;
+            if (!container) return;
+
+            const rect = container.getBoundingClientRect();
+            setView((prev) => ({
+                ...prev,
+                offset: clampOffset(prev.offset, prev.scale, rect.width, rect.height),
+            }));
+        }
+
+        reclamp();
+        window.addEventListener("resize", reclamp);
+        return () => window.removeEventListener("resize", reclamp);
+    }, [scale]);
+
+    // Allows `debug = true/false` in the browser console to toggle debug UI
+    useEffect(() => {
+        const existingDescriptor = Object.getOwnPropertyDescriptor(window, "debug");
+
+        if (!existingDescriptor || existingDescriptor.configurable) {
+            let debugValue = window.debug === true;
+
+            Object.defineProperty(window, "debug", {
+                configurable: true,
+                get() {
+                    return debugValue;
+                },
+                set(value: boolean) {
+                    debugValue = Boolean(value);
+                    setDebugEnabled(debugValue);
+                },
+            });
+            return;
+        }
+
+        // Fallback if another script already defines a debug property.
+        const syncInterval = window.setInterval(() => {
+            setDebugEnabled(window.debug === true);
+        }, 250);
+
+        return () => window.clearInterval(syncInterval);
+    }, []);
+
+    return <>
+        {debugEnabled && (
+            <>
+                <p className="text-white">Debug Coordinates: {offset.x}, {offset.y}</p>
+                <p className="text-white">Scale: {scale}</p>
+                <p className="text-white">
+                    Pin: {pinPosition ? `${pinPosition.x}, ${pinPosition.y}` : "not placed"}
+                </p>
+            </>
+        )}
+    <div
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onWheel={handleWheel}
+        onClick={handleClick}
         className="rounded shadow border border-5 border-warning"
-    />
+        style={{
+            height: `${MAP_HEIGHT}vh`,
+            aspectRatio: `${ASPECT_RATIO}`,
+            position: "relative",
+            overflow: "hidden",
+            userSelect: "none",
+            cursor: dragging ? "grabbing" : "grab",
+        }}
+    >
+
+        <img
+            className={"minimap-img"}
+            src={mapLabeled}
+            alt="Campus Minimap"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
+            style={{
+                transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+                transformOrigin: "top left",
+                userSelect: "none",
+                pointerEvents: "none",
+            }}
+        />
+        {pinPosition && (
+            <img
+                src={pin}
+                alt="Selected location"
+                draggable={false}
+                style={{
+                    position: "absolute",
+                    left: `${offset.x + pinPosition.x * scale}px`,
+                    top: `${offset.y + pinPosition.y * scale}px`,
+                    transform: "translate(-50%, -100%)",
+                    width: `${PIN_SIZE_PX}px`,
+                    pointerEvents: "none",
+                    userSelect: "none",
+                }}
+            />
+        )}
+    </div>
+    </>
 }
+
+// round with precision courtesy of stack overflow
+function round(value: number, decimal_places: number): number {
+    const multiplier: number = Math.pow(10, decimal_places || 0);
+    return Math.round(value * multiplier) / multiplier;
+}
+
+
+// top 1 clamp function
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
+
+// secret chinese clamp function
+function clampOffset(
+    offset: Point,
+    scale: number,
+    containerWidth: number,
+    containerHeight: number
+): Point {
+    const scaledWidth = MINIMAP_WIDTH * scale;
+    const scaledHeight = MINIMAP_HEIGHT * scale;
+
+    const centeredX = (containerWidth - scaledWidth) / 2;
+    const centeredY = (containerHeight - scaledHeight) / 2;
+
+    const minX = scaledWidth <= containerWidth ? centeredX : containerWidth - scaledWidth;
+    const maxX = scaledWidth <= containerWidth ? centeredX : 0;
+
+    const minY = scaledHeight <= containerHeight ? centeredY : containerHeight - scaledHeight;
+    const maxY = scaledHeight <= containerHeight ? centeredY : 0;
+
+    return {
+        x: round(clamp(offset.x, minX, maxX), 0),
+        y: round(clamp(offset.y, minY, maxY), 0),
+    };
+}
+
+

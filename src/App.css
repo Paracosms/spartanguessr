@@ -19,7 +19,7 @@ body {
 	align-items: center;
 	justify-content: center;
 	padding: 2rem;
-	background: url("./assets/background.jpg") center / cover no-repeat;
+	background: url("assets/Background.jpg") center / cover no-repeat;
 	text-align: center;
 }
 
@@ -117,6 +117,10 @@ body {
 	margin: 0;
 	color: rgba(247, 244, 234, 0.78);
 	font-size: 0.95rem;
+}
+
+.minimap-img {
+	image-rendering: pixelated;
 }
 
 @media (max-width: 768px) {
