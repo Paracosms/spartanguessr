@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import mapLabeled from "../assets/MapLabeled.jpg";
-import mapUnlabeled from "../assets/MapUnlabeled.jpg";
+//import mapUnlabeled from "../assets/MapUnlabeled.jpg";
 import pin from "../assets/Pin.png";
 type Point = { x: number; y: number };
 type ViewState = { scale: number; offset: Point };
@@ -21,8 +21,10 @@ const PIN_SIZE_PX = 30;
 const INITIAL_SCALE = 1; // prod = 1.0
 const ZOOM_SPEED = 0.05;
 
-// Handle how far the image can be zoomed. Must be divisible by ZOOM_SPEED
-const MIN_ZOOM = 0.25;
+// Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
+const BASE_MIN_ZOOM = 0.25; // The scale that encompasses the entire map on a MIN_ZOOM_REFERENCE_HEIGHT px display
+const MIN_ZOOM_REFERENCE_HEIGHT = 1080;
+const MAX_DYNAMIC_MIN_ZOOM = 0.45;
 const MAX_ZOOM = 2;
 
 // Minimap dimensions in px
@@ -37,6 +39,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
         scale: INITIAL_SCALE,
         offset: INITIAL_MAP_POS,
     });
+    const [minZoom, setMinZoom] = useState(BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
     const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
     const { scale, offset } = view;
@@ -73,7 +76,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
 
     // Pan
     function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
-        if (scale == MIN_ZOOM) return;
+        if (scale <= minZoom) return;
 
         e.preventDefault();
         setDragging(true);
@@ -104,9 +107,9 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
         setView((prev) => {
             // Zoom in/out by ZOOM_SPEED for every scroll step
             const direction = e.deltaY < 0 ? 1 : -1;
-            const currentStep = Math.round((prev.scale - MIN_ZOOM) / ZOOM_SPEED);
+            const currentStep = Math.round((prev.scale - minZoom) / ZOOM_SPEED);
             const nextStep = currentStep + direction;
-            const nextScale = clamp(round(MIN_ZOOM + nextStep * ZOOM_SPEED, 4), MIN_ZOOM, MAX_ZOOM);
+            const nextScale = clamp(round(minZoom + nextStep * ZOOM_SPEED, 4), minZoom, MAX_ZOOM);
 
             // Avoid useless updates
             if (nextScale === prev.scale) return prev;
@@ -182,16 +185,19 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
             if (!container) return;
 
             const rect = container.getBoundingClientRect();
+            const nextMinZoom = getMinZoom(rect.height);
+            setMinZoom(nextMinZoom);
+
             setView((prev) => ({
-                ...prev,
-                offset: clampOffset(prev.offset, prev.scale, rect.width, rect.height),
+                scale: clamp(prev.scale, nextMinZoom, MAX_ZOOM),
+                offset: clampOffset(prev.offset, clamp(prev.scale, nextMinZoom, MAX_ZOOM), rect.width, rect.height),
             }));
         }
 
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, [scale]);
+    }, []);
 
     // Allows `debug = true/false` in the browser console to toggle debug UI
     useEffect(() => {
@@ -226,6 +232,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
             <>
                 <p className="text-white">Debug Coordinates: {offset.x}, {offset.y}</p>
                 <p className="text-white">Scale: {scale}</p>
+                <p className="text-white">Min Zoom: {minZoom}</p>
                 <p className="text-white">
                     Pin: {pinPosition ? `${pinPosition.x}, ${pinPosition.y}` : "not placed"}
                 </p>
@@ -287,11 +294,23 @@ function round(value: number, decimal_places: number): number {
     return Math.round(value * multiplier) / multiplier;
 }
 
+// fix for 1080p+ monitors
+function getMinZoom(containerHeight: number): number {
+    const referenceContainerHeight = (MIN_ZOOM_REFERENCE_HEIGHT * MAP_HEIGHT) / 100;
+    const scaledMinZoom = BASE_MIN_ZOOM * (containerHeight / referenceContainerHeight);
+    const clampedMinZoom = clamp(scaledMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM);
+
+    const baseSteps = Math.ceil(clampedMinZoom / ZOOM_SPEED);
+    const extraStepBias = containerHeight > referenceContainerHeight ? 1 : 0;
+    const quantizedMinZoom = (baseSteps + extraStepBias) * ZOOM_SPEED;
+    return round(clamp(quantizedMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM), 2);
+}
 
 // top 1 clamp function
 function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
+
 
 // secret chinese clamp function
 function clampOffset(

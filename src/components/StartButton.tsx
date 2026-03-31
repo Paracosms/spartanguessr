@@ -1,6 +1,7 @@
 import { useState, type SetStateAction} from "react";
 import { useNavigate } from "react-router-dom";
 import SettingsMenu from "./SettingsMenu.tsx";
+import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
 
 export default function StartButton() {
 
@@ -19,6 +20,7 @@ export default function StartButton() {
     }
 
     async function sendToServer() {
+        await preloadGameAssets();
         navigate("/game")
 
         try {

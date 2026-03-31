@@ -1,9 +1,15 @@
 import './App.css';
+import { useEffect } from "react";
 import StartButton from "./components/StartButton.tsx";
 import Game from "./views/Game.tsx"
 import {Routes, Route} from "react-router-dom";
+import { preloadGameAssets } from "./utils/preloadGameAssets.tsx";
 
 function LandingPage() {
+    useEffect(() => {
+        void preloadGameAssets();
+    }, []);
+
     return (
         <main className="landing-page">
             <section>
