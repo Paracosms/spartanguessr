@@ -3,7 +3,6 @@ import io
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
-from models import db, Image, GameSession, Guess
 from roundTracking import roundTracking
 from score_algorithm import score_algorithm
 
@@ -11,15 +10,6 @@ load_dotenv()
 
 app = Flask(__name__)
 CORS(app, origins=[os.environ.get("ALLOWED_ORIGIN", "http://localhost:5173")])
-
-# --- Database config ---
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///spartanguessr.db")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db.init_app(app)
-
-with app.app_context():
-    db.create_all()  # creates tables if they don't exist yet
-
 
 # Health check
 @app.route("/health")
