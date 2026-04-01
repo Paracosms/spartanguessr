@@ -1,22 +1,60 @@
-import { useState, type SetStateAction} from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SettingsMenu from "./SettingsMenu.tsx";
 import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
 
+type DifficultyLabel = "Easy" | "Medium" | "Hard";
+
+type GameFormData = {
+    difficulty: 1 | 2 | 3;
+    labeled_map: string;
+    timer_length: string;
+    seed: string;
+    outside_only: string;
+};
+
+const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
+    Easy: 1,
+    Medium: 2,
+    Hard: 3,
+};
+
+function levelToDifficulty(level: 1 | 2 | 3): DifficultyLabel {
+    if (level === 2) return "Medium";
+    if (level === 3) return "Hard";
+    return "Easy";
+}
+
 export default function StartButton() {
 
-    const [formData, setFormData] = useState("Easy")
+    const [formData, setFormData] = useState<GameFormData>({
+        difficulty: 1,
+        labeled_map: "",
+        timer_length: "",
+        seed: "",
+        outside_only: "",
+    });
     const navigate = useNavigate();
 
     // below is the ideal implementation, right now i just put in a basic one that i will refactor later
 
     //const [formData, setFormData] = useState({
-    //    difficulty: ""
+    //    difficulty: 1/2/3
+    //    labeled_map: T/F
+    //    timer_length: x seconds
+    //    seed: x
+    //    outside_only: T/F
     //});
 
-    // Called by child whenever the form changes (or on submit)
-    function handleFormDataChange(nextData: SetStateAction<string>) {
-        setFormData(nextData);
+    // Only difficulty works for now the rest of the fields are placeholders
+    function handleFormDataChange(nextDifficulty: string) {
+        const normalized = (nextDifficulty as DifficultyLabel) || "Easy";
+        const mappedDifficulty = DIFFICULTY_TO_LEVEL[normalized] ?? 1;
+
+        setFormData((prev) => ({
+            ...prev,
+            difficulty: mappedDifficulty,
+        }));
     }
 
     async function sendToServer() {
@@ -56,15 +94,24 @@ export default function StartButton() {
         <div className="start-card">
             <p className="start-card-label">Game Settings</p>
 
-            <SettingsMenu difficulty={formData} onDifficultyChange={handleFormDataChange} />
+            <SettingsMenu
+                difficulty={levelToDifficulty(formData.difficulty)}
+                onDifficultyChange={handleFormDataChange}
+            />
 
             <button className="start-game-button" type="button" onClick={sendToServer}>
                 Start Game
             </button>
 
-            <p className="selection-summary">
-                Selected difficulty: {formData}
-            </p>
+            <pre className="selection-summary">
+{`{
+difficulty: ${formData.difficulty}
+labeled_map: ${formData.labeled_map}
+timer_length: ${formData.timer_length}
+seed: ${formData.seed}
+outside_only: ${formData.outside_only}
+}`}
+            </pre>
         </div>
     );
 }
