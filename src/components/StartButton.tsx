@@ -36,16 +36,6 @@ export default function StartButton() {
     });
     const navigate = useNavigate();
 
-    // below is the ideal implementation, right now i just put in a basic one that i will refactor later
-
-    //const [formData, setFormData] = useState({
-    //    difficulty: 1/2/3
-    //    labeled_map: T/F
-    //    timer_length: x seconds
-    //    seed: x
-    //    outside_only: T/F
-    //});
-
     // Only difficulty works for now the rest of the fields are placeholders
     function handleFormDataChange(nextDifficulty: string) {
         const normalized = (nextDifficulty as DifficultyLabel) || "Easy";
