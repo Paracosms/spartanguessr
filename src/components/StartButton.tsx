@@ -7,10 +7,10 @@ type DifficultyLabel = "Easy" | "Medium" | "Hard";
 
 type GameFormData = {
     difficulty: 1 | 2 | 3;
-    labeled_map: string;
+    labeled_map: boolean;
     timer_length: string;
     seed: string;
-    outside_only: string;
+    outside_only: boolean;
 };
 
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
@@ -29,27 +29,38 @@ export default function StartButton() {
 
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 1,
-        labeled_map: "",
-        timer_length: "",
+        labeled_map: true,
+        timer_length: "none",
         seed: "",
-        outside_only: "",
+        outside_only: false,
     });
     const navigate = useNavigate();
 
-    // Only difficulty works for now the rest of the fields are placeholders
-    function handleFormDataChange(nextDifficulty: string) {
+    function handleDifficultyChange(nextDifficulty: string) {
         const normalized = (nextDifficulty as DifficultyLabel) || "Easy";
         const mappedDifficulty = DIFFICULTY_TO_LEVEL[normalized] ?? 1;
+        setFormData((prev) => ({ ...prev, difficulty: mappedDifficulty }));
+    }
 
-        setFormData((prev) => ({
-            ...prev,
-            difficulty: mappedDifficulty,
-        }));
+    function handleLabeledMapChange(value: boolean) {
+        setFormData((prev) => ({ ...prev, labeled_map: value }));
+    }
+
+    function handleTimerLengthChange(value: string) {
+        setFormData((prev) => ({ ...prev, timer_length: value }));
+    }
+
+    function handleSeedChange(value: string) {
+        setFormData((prev) => ({ ...prev, seed: value }));
+    }
+
+    function handleOutsideOnlyChange(value: boolean) {
+        setFormData((prev) => ({ ...prev, outside_only: value }));
     }
 
     async function sendToServer() {
         await preloadGameAssets();
-        navigate("/game")
+        navigate("/game");
 
         try {
             const res = await fetch("API CALL", {
@@ -66,18 +77,11 @@ export default function StartButton() {
             const result = await res.json();
 
             // TODO: handle result before proceeding to /game
-            //navigate("/game")
 
             console.log("SUCCESS", result);
         } catch (err) {
-
-
             console.error("FAIL", err);
-
-
         }
-
-
     }
 
     return (
@@ -86,7 +90,15 @@ export default function StartButton() {
 
             <SettingsMenu
                 difficulty={levelToDifficulty(formData.difficulty)}
-                onDifficultyChange={handleFormDataChange}
+                onDifficultyChange={handleDifficultyChange}
+                labeledMap={formData.labeled_map}
+                onLabeledMapChange={handleLabeledMapChange}
+                timerLength={formData.timer_length}
+                onTimerLengthChange={handleTimerLengthChange}
+                seed={formData.seed}
+                onSeedChange={handleSeedChange}
+                outsideOnly={formData.outside_only}
+                onOutsideOnlyChange={handleOutsideOnlyChange}
             />
 
             <button className="start-game-button" type="button" onClick={sendToServer}>
