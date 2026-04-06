@@ -113,6 +113,42 @@ body {
 	box-shadow: 0 22px 34px rgba(54, 179, 106, 0.32);
 }
 
+.setting-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+	padding: 0.95rem 1rem;
+	background: rgba(255, 255, 255, 0.1);
+	border: none;
+	border-radius: 14px;
+	font-weight: 700;
+	color: #fff;
+	box-sizing: border-box;
+}
+
+.setting-input {
+	width: 100%;
+	padding: 0.95rem 1rem;
+	background: rgba(255, 255, 255, 0.1);
+	border: none;
+	border-radius: 14px;
+	font-weight: 700;
+	color: #f7f4ea;
+	font-family: inherit;
+	font-size: inherit;
+	box-sizing: border-box;
+}
+
+.setting-input::placeholder {
+	color: #fff;
+}
+
+.setting-input:focus {
+	outline: none;
+	background: rgba(255, 255, 255, 0.16);
+}
+
 .selection-summary {
 	margin: 0;
 	color: rgba(247, 244, 234, 0.78);
