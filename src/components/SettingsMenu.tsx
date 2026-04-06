@@ -4,8 +4,8 @@ import Form from "react-bootstrap/Form";
 type SettingsMenuProps = {
     difficulty: string;
     onDifficultyChange: (difficulty: string) => void;
-    labeledMap: boolean;
-    onLabeledMapChange: (value: boolean) => void;
+    unlabeledMap: boolean;
+    onUnlabeledMapChange: (value: boolean) => void;
     timerLength: string;
     onTimerLengthChange: (value: string) => void;
     seed: string;
@@ -24,8 +24,8 @@ const TIMER_DISPLAY: Record<string, string> = {
 export default function SettingsMenu({
     difficulty,
     onDifficultyChange,
-    labeledMap,
-    onLabeledMapChange,
+    unlabeledMap,
+    onUnlabeledMapChange,
     timerLength,
     onTimerLengthChange,
     seed,
@@ -37,7 +37,7 @@ export default function SettingsMenu({
         <>
             {/* Dropdowns & inputs */}
             <Dropdown onSelect={(eventKey) => eventKey && onDifficultyChange(eventKey)}>
-                <Dropdown.Toggle className="difficulty-button" variant="success" id="difficulty-dropdown">
+                <Dropdown.Toggle className="difficulty-button" id="difficulty-dropdown">
                     Difficulty: {difficulty}
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
@@ -48,7 +48,7 @@ export default function SettingsMenu({
             </Dropdown>
 
             <Dropdown onSelect={(eventKey) => eventKey && onTimerLengthChange(eventKey)}>
-                <Dropdown.Toggle className="difficulty-button" variant="success" id="timer-dropdown">
+                <Dropdown.Toggle className="difficulty-button" id="timer-dropdown">
                     Timer: {TIMER_DISPLAY[timerLength] ?? timerLength}
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
@@ -69,12 +69,12 @@ export default function SettingsMenu({
 
             {/* Toggles */}
             <div className="setting-toggle">
-                <span>Labeled Map</span>
+                <span>Unlabeled Map</span>
                 <Form.Check
                     type="switch"
-                    id="labeled-map-switch"
-                    checked={labeledMap}
-                    onChange={(e) => onLabeledMapChange(e.target.checked)}
+                    id="unlabeled-map-switch"
+                    checked={unlabeledMap}
+                    onChange={(e) => onUnlabeledMapChange(e.target.checked)}
                 />
             </div>
 

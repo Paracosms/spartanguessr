@@ -7,7 +7,7 @@ type DifficultyLabel = "Easy" | "Medium" | "Hard";
 
 type GameFormData = {
     difficulty: 1 | 2 | 3;
-    labeled_map: boolean;
+    unlabled_map: boolean;
     timer_length: string;
     seed: string;
     outside_only: boolean;
@@ -27,10 +27,11 @@ function levelToDifficulty(level: 1 | 2 | 3): DifficultyLabel {
 
 export default function StartButton() {
 
+    // DEFAULT STATE
     const [formData, setFormData] = useState<GameFormData>({
-        difficulty: 1,
-        labeled_map: true,
-        timer_length: "none",
+        difficulty: 2, // 1: easy, 2: medium, 3: hard
+        unlabled_map: false,
+        timer_length: "30", // "none" "30" "60" "120"
         seed: "",
         outside_only: false,
     });
@@ -42,8 +43,8 @@ export default function StartButton() {
         setFormData((prev) => ({ ...prev, difficulty: mappedDifficulty }));
     }
 
-    function handleLabeledMapChange(value: boolean) {
-        setFormData((prev) => ({ ...prev, labeled_map: value }));
+    function handleUnlabeledMapChange(value: boolean) {
+        setFormData((prev) => ({ ...prev, unlabled_map: value }));
     }
 
     function handleTimerLengthChange(value: string) {
@@ -91,8 +92,8 @@ export default function StartButton() {
             <SettingsMenu
                 difficulty={levelToDifficulty(formData.difficulty)}
                 onDifficultyChange={handleDifficultyChange}
-                labeledMap={formData.labeled_map}
-                onLabeledMapChange={handleLabeledMapChange}
+                unlabeledMap={formData.unlabled_map}
+                onUnlabeledMapChange={handleUnlabeledMapChange}
                 timerLength={formData.timer_length}
                 onTimerLengthChange={handleTimerLengthChange}
                 seed={formData.seed}
@@ -108,7 +109,7 @@ export default function StartButton() {
             <pre className="selection-summary">
 {`{
 difficulty: ${formData.difficulty}
-labeled_map: ${formData.labeled_map}
+unlabeled_map: ${formData.unlabled_map}
 timer_length: ${formData.timer_length}
 seed: ${formData.seed}
 outside_only: ${formData.outside_only}
