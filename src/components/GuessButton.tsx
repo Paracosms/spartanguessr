@@ -1,4 +1,4 @@
-
+/*
 type Point = { x: number; y: number };
 
 type GuessButtonProps = {
@@ -8,7 +8,9 @@ type GuessButtonProps = {
     coordinates: Point | null;
 };
 
+
 export default function GuessButton({ session_id, image_id, round_number, coordinates }: GuessButtonProps) {
+
     const valid_session =
         session_id != null &&
         image_id != null &&
@@ -56,3 +58,4 @@ export default function GuessButton({ session_id, image_id, round_number, coordi
         </button>
     )
 }
+ */

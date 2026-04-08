@@ -16,9 +16,9 @@ declare global {
 
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -650, y: -750}
-const MAP_HEIGHT = 40; // -> 40vh
+const MAP_HEIGHT = 80; // -> 40vh
 const PIN_SIZE_PX = 30;
-const INITIAL_SCALE = 1; // prod = 1.0
+const INITIAL_SCALE = 0.65; // prod = 1.0
 const ZOOM_SPEED = 0.05;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
@@ -41,7 +41,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
     });
     const [minZoom, setMinZoom] = useState(BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
-    const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
+    //const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
     const { scale, offset } = view;
     const dragStartRef = useRef({x:0, y:0});
     const dragMouseStartRef = useRef({x:0, y:0});
@@ -213,7 +213,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
                 },
                 set(value: boolean) {
                     debugValue = Boolean(value);
-                    setDebugEnabled(debugValue);
+                    //setDebugEnabled(debugValue);
                 },
             });
             return;
@@ -221,20 +221,17 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
 
         // Fallback if another script already defines a debug property.
         const syncInterval = window.setInterval(() => {
-            setDebugEnabled(window.debug === true);
+            //setDebugEnabled(window.debug === true);
         }, 250);
 
         return () => window.clearInterval(syncInterval);
     }, []);
 
     return <>
-        {debugEnabled && (
+        {(
             <>
-                <p className="text-white">Debug Coordinates: {offset.x}, {offset.y}</p>
-                <p className="text-white">Scale: {scale}</p>
-                <p className="text-white">Min Zoom: {minZoom}</p>
-                <p className="text-white">
-                    Pin: {pinPosition ? `${pinPosition.x}, ${pinPosition.y}` : "not placed"}
+                <p className="text-black" style={{ fontSize: "5rem" }}>
+                    {pinPosition ? `x: ${pinPosition.x}, y: ${pinPosition.y}` : "not placed"}
                 </p>
             </>
         )}
