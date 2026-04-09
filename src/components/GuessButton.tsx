@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 
 type Point = { x: number; y: number };
 
@@ -6,27 +7,37 @@ type GuessButtonProps = {
     image_id: number | null;
     round_number: number | null;
     coordinates: Point | null;
+    onRoundAdvance: () => void;
 };
 
-export default function GuessButton({ session_id, image_id, round_number, coordinates }: GuessButtonProps) {
+
+export default function GuessButton({ session_id, image_id, round_number, coordinates, onRoundAdvance }: GuessButtonProps) {
+    const navigate = useNavigate();
     const valid_session =
         session_id != null &&
         image_id != null &&
         round_number != null &&
         coordinates != null;
 
+
     async function sendToServer() {
+
+        if (round_number == 3) {
+            navigate("/results")
+        }
+        onRoundAdvance();
         //if (!valid_session || !coordinates || session_id == null || image_id == null || round_number == null) return;
 
         const guess_packet = {
             session_id,
             image_id,
-            round_number,
+            round_number: round_number,
             x: coordinates.x,
             y: coordinates.y,
         };
 
         console.log(guess_packet);
+
 
         try {
             const res = await fetch("API CALL", {
