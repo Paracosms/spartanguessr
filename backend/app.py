@@ -5,11 +5,20 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from roundTracking import roundTracking
 from score_algorithm import score_algorithm
+from flask_sqlalchemy import SQLAlchemy
+from models import db, GameSession, Image, Guess
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=[os.environ.get("ALLOWED_ORIGIN", "http://localhost:5173")])
+#CORS(app, origins=[os.environ.get("ALLOWED_ORIGIN", "http://localhost:5173")])
+CORS(app)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///spartanguessr.db")
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
 
 # Health check
 @app.route("/health")
@@ -69,53 +78,59 @@ def submit_guess():
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body is required."}), 400
+    
+    
 
-    required = ["session_id", "image_id", "round_number", "guess_latitude", "guess_longitude"]
-    missing = [f for f in required if f not in data]
-    if missing:
-        return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
+    #required = ["session_id", "image_id", "round_number", "guess_latitude", "guess_longitude"]
+    #missing = [f for f in required if f not in data]
+    #if missing:
+        #return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
 
-    session = GameSession.query.get(data["session_id"])
-    if not session:
-        return jsonify({"error": "Session not found. Please restart the game."}), 404
+    #session = db.session.get(GameSession, data["session_id"])
+    #if not session:
+        #return jsonify({"error": "Session not found. Please restart the game."}), 404
 
-    image = Image.query.get(data["image_id"])
-    if not image:
-        return jsonify({"error": "Image not found."}), 404
+    #image = db.session.get(Image, data["image_id"])
+    #if not image:
+        #return jsonify({"error": "Image not found."}), 404
 
-    guess_lat = data["guess_latitude"]
-    guess_lng = data["guess_longitude"]
-
+    guess_lat = data.get("guess_latitude")
+    guess_lng = data.get("guess_longitude")
+    
+    if guess_lat is None or guess_lng is None:
+            return jsonify({"error": "Missing coordinates"}), 400
     # Calculate distance and score
-    score, distance_meters = score_algorithm(
-        [guess_lat, guess_lng],
-        [image.latitude, image.longitude]
-    )
+    #score, distance_meters = score_algorithm(
+        #[guess_lat, guess_lng],
+        #[image.latitude, image.longitude]
+    #)
 
     # Save guess
-    guess = Guess(
-        session_id=session.session_id,
-        image_id=image.image_id,
-        round_number=data["round_number"],
-        guess_latitude=guess_lat,
-        guess_longitude=guess_lng,
-        distance_meters=distance_meters,
-        score=score,
-    )
-    db.session.add(guess)
+    #guess = Guess(
+        #session_id=session.session_id,
+        #image_id=image.image_id,
+        #round_number=data["round_number"],
+        #guess_latitude=guess_lat,
+        #guess_longitude=guess_lng,
+        #distance_meters=distance_meters,
+        #score=score,
+    #)
+    #db.session.add(guess)
 
     # Update session total score
-    session.total_score += score
-    db.session.commit()
+    #session.total_score += score
+    #db.session.commit()
 
     return jsonify({
-        "round_number": data["round_number"],
-        "distance_meters": round(distance_meters, 2),
-        "score": score,
-        "total_score": session.total_score,
+        #"round_number": data["round_number"],
+        #"distance_meters": round(distance_meters, 2),
+        #"score": score,
+        #"total_score": session.total_score,
         # Reveal correct location AFTER guess is submitted
-        "actual_latitude": image.latitude,
-        "actual_longitude": image.longitude,
+        #"actual_latitude": image.latitude,
+        #"actual_longitude": image.longitude,
+        "guess_latitude": guess_lat,
+        "guess_longitude": guess_lng
     }), 200
 
 
@@ -123,7 +138,7 @@ def submit_guess():
 # Get all round results for a session (final summary)
 @app.route("/session/<int:session_id>/results")
 def get_results(session_id):
-    session = GameSession.query.get(session_id)
+    session = db.session.get(GameSession, session_id)
     if not session:
         return jsonify({"error": "Session not found."}), 404
 

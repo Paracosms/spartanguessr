@@ -19,17 +19,17 @@ export default function GuessButton({ session_id, image_id, round_number, coordi
         //if (!valid_session || !coordinates || session_id == null || image_id == null || round_number == null) return;
 
         const guess_packet = {
-            session_id,
-            image_id,
-            round_number,
-            x: coordinates.x,
-            y: coordinates.y,
+            //session_id,
+            //image_id,
+            //round_number,
+            guess_latitude: coordinates?.x,
+            guess_longitude: coordinates?.y,
         };
 
         console.log(guess_packet);
 
         try {
-            const res = await fetch("API CALL", {
+            const res = await fetch("http://localhost:5000/guess", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(guess_packet),
