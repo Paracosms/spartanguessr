@@ -7,6 +7,7 @@ from roundTracking import roundTracking
 from score_algorithm import score_algorithm
 from flask_sqlalchemy import SQLAlchemy
 from models import db, GameSession, Image, Guess
+from upstash_redis import Redis
 
 load_dotenv()
 
@@ -22,6 +23,14 @@ CORS(app, resources={
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///spartanguessr.db")
 db.init_app(app)
+
+redis = Redis(
+    url=os.environ.get("UPSTASH_REDIS_REST_URL"),
+    token=os.environ.get("UPSTASH_REDIS_REST_TOKEN")
+)
+
+LEADERBOARD_KEY = "leaderboard"
+MAX_LEADERBOARD_SIZE = 50
 
 with app.app_context():
     db.create_all()
@@ -168,6 +177,72 @@ def get_results(session_id):
         "largest_distance": round(max(distances), 2) if distances else 0,
         "rounds": rounds,
     }), 200
+
+
+# GET /leaderboard
+# Returns top 50 scores with ranks (tied scores share same rank)
+@app.route("/leaderboard")
+def get_leaderboard():
+    results = redis.zrange(LEADERBOARD_KEY, 0, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
+
+    leaderboard = []
+    prev_score = None
+    rank = 0
+
+    for i, (name, score) in enumerate(results):
+        score = int(score)
+        if score != prev_score:
+            rank = i + 1
+            prev_score = score
+        leaderboard.append({"name": name, "score": score, "rank": rank})
+
+    return jsonify(leaderboard), 200
+
+
+# GET /leaderboard/qualify?score=<score>
+# Check if a score qualifies for top 50
+@app.route("/leaderboard/qualify")
+def check_qualify():
+    score = request.args.get("score", type=int)
+    if score is None:
+        return jsonify({"error": "Score is required."}), 400
+
+    count = redis.zcard(LEADERBOARD_KEY)
+    if count < MAX_LEADERBOARD_SIZE:
+        position = redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1
+        return jsonify({"qualifies": True, "position": position}), 200
+
+    lowest = redis.zrange(LEADERBOARD_KEY, MAX_LEADERBOARD_SIZE - 1, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
+    if lowest:
+        lowest_score = int(lowest[0][1])
+        qualifies = score >= lowest_score
+        position = redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1 if qualifies else None
+        return jsonify({"qualifies": qualifies, "position": position}), 200
+
+    return jsonify({"qualifies": True}), 200
+
+
+# POST /leaderboard
+# Add a score to the leaderboard
+# Body: { "name": "player_name", "score": 5000 }
+@app.route("/leaderboard", methods=["POST"])
+def add_to_leaderboard():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body is required."}), 400
+
+    name = data.get("name", "").strip()
+    score = data.get("score")
+
+    if not name:
+        return jsonify({"error": "Name is required."}), 400
+    if not isinstance(score, int) or score < 0:
+        return jsonify({"error": "Valid score is required."}), 400
+
+    redis.zadd(LEADERBOARD_KEY, {name: score})
+    position = redis.zrevrank(LEADERBOARD_KEY, name) + 1
+
+    return jsonify({"name": name, "score": score, "position": position}), 201
 
 
 if __name__ == "__main__":
