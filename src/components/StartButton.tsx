@@ -31,11 +31,11 @@ export default function StartButton() {
     // DEFAULT STATE
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 2, // 1: easy, 2: medium, 3: hard
-        unlabled_map: false,
         round_count: 5,
         timer_length: "30", // "none" "30" "60" "120"
         seed: "",
         outside_only: false,
+        unlabled_map: false,
     });
     const navigate = useNavigate();
 
