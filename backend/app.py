@@ -11,14 +11,7 @@ from models import db, GameSession, Image, Guess
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={
-    r"/guess": {
-        "origins": [
-            "https://localhost:5173",
-            "paracosms.github.io"
-        ]
-    }
-})
+CORS(app)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///spartanguessr.db")
 db.init_app(app)
@@ -81,7 +74,7 @@ def create_session():
 #         "guess_latitude": 37.33, "guess_longitude": -121.88 }
 @app.route("/guess", methods=["POST"])
 def submit_guess():
-    data = request.get_json()
+    data = request.get_json(silent=Trues)
     if not data:
         return jsonify({"error": "Request body is required."}), 400
     
