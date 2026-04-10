@@ -6,6 +6,8 @@ type SettingsMenuProps = {
     onDifficultyChange: (difficulty: string) => void;
     unlabeledMap: boolean;
     onUnlabeledMapChange: (value: boolean) => void;
+    roundCount: number;
+    onRoundCountChange: (value: number) => void;
     timerLength: string;
     onTimerLengthChange: (value: string) => void;
     seed: string;
@@ -26,6 +28,8 @@ export default function SettingsMenu({
     onDifficultyChange,
     unlabeledMap,
     onUnlabeledMapChange,
+    roundCount,
+    onRoundCountChange,
     timerLength,
     onTimerLengthChange,
     seed,
@@ -56,6 +60,24 @@ export default function SettingsMenu({
                     <Dropdown.Item eventKey="30">30s</Dropdown.Item>
                     <Dropdown.Item eventKey="60">60s</Dropdown.Item>
                     <Dropdown.Item eventKey="120">120s</Dropdown.Item>
+                </Dropdown.Menu>
+            </Dropdown>
+
+            <Dropdown
+                onSelect={(eventKey) => {
+                    const nextRoundCount = Number(eventKey);
+                    if (Number.isInteger(nextRoundCount) && nextRoundCount > 0) {
+                        onRoundCountChange(nextRoundCount);
+                    }
+                }}
+            >
+                <Dropdown.Toggle className="difficulty-button" id="rounds-dropdown">
+                    Rounds: {roundCount}
+                </Dropdown.Toggle>
+                <Dropdown.Menu>
+                    <Dropdown.Item eventKey="3">3</Dropdown.Item>
+                    <Dropdown.Item eventKey="5">5</Dropdown.Item>
+                    <Dropdown.Item eventKey="10">10</Dropdown.Item>
                 </Dropdown.Menu>
             </Dropdown>
 

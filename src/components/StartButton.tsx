@@ -8,6 +8,7 @@ type DifficultyLabel = "Easy" | "Medium" | "Hard";
 type GameFormData = {
     difficulty: 1 | 2 | 3;
     unlabled_map: boolean;
+    round_count: number;
     timer_length: string;
     seed: string;
     outside_only: boolean;
@@ -31,6 +32,7 @@ export default function StartButton() {
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 2, // 1: easy, 2: medium, 3: hard
         unlabled_map: false,
+        round_count: 5,
         timer_length: "30", // "none" "30" "60" "120"
         seed: "",
         outside_only: false,
@@ -51,6 +53,10 @@ export default function StartButton() {
         setFormData((prev) => ({ ...prev, timer_length: value }));
     }
 
+    function handleRoundCountChange(value: number) {
+        setFormData((prev) => ({ ...prev, round_count: value }));
+    }
+
     function handleSeedChange(value: string) {
         setFormData((prev) => ({ ...prev, seed: value }));
     }
@@ -61,7 +67,7 @@ export default function StartButton() {
 
     async function sendToServer() {
         await preloadGameAssets();
-        navigate("/game");
+        navigate("/game", { state: { roundCount: formData.round_count } });
 
         try {
             const res = await fetch("API CALL", {
@@ -94,6 +100,8 @@ export default function StartButton() {
                 onDifficultyChange={handleDifficultyChange}
                 unlabeledMap={formData.unlabled_map}
                 onUnlabeledMapChange={handleUnlabeledMapChange}
+                roundCount={formData.round_count}
+                onRoundCountChange={handleRoundCountChange}
                 timerLength={formData.timer_length}
                 onTimerLengthChange={handleTimerLengthChange}
                 seed={formData.seed}
@@ -110,6 +118,7 @@ export default function StartButton() {
 {`{
 difficulty: ${formData.difficulty}
 unlabeled_map: ${formData.unlabled_map}
+round_count: ${formData.round_count}
 timer_length: ${formData.timer_length}
 seed: ${formData.seed}
 outside_only: ${formData.outside_only}

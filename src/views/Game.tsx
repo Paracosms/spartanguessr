@@ -1,12 +1,21 @@
 import { useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
+import { useLocation, useNavigate } from "react-router-dom";
 
 type Point = { x: number; y: number };
 
 export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
-    const [roundNumber, setRoundNumber] = useState<number | null>(1);
+    const [roundNumber, setRoundNumber] = useState(1);
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const requestedRoundCount = (location.state as { roundCount?: number } | null)?.roundCount;
+    const maxRounds =
+        typeof requestedRoundCount === "number" && requestedRoundCount > 0
+            ? requestedRoundCount
+            : 5;
 
     // TEST VALUES
     const [sessionId] = useState<number | null>(420);
@@ -16,7 +25,9 @@ export default function Game() {
 
     return (
         <>
-            <p className="text-black">{roundNumber}</p>
+            <p className="text-black">
+                {roundNumber}/{maxRounds}
+            </p>
 
             <img src="https://ngocng2910.github.io/images/hard/outside/IMG_8146.JPG"
                  draggable={false}
@@ -31,8 +42,10 @@ export default function Game() {
                         session_id={sessionId}
                         image_id={imageId}
                         round_number={roundNumber}
+                        max_rounds={maxRounds}
                         coordinates={pinPosition}
                         onRoundAdvance={() => setRoundNumber((r) => r + 1)}
+                        onGameComplete={() => navigate("/results")}
                     />
             </div>
         </>
