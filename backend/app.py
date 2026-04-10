@@ -83,7 +83,7 @@ def create_session():
 #         "guess_latitude": 37.33, "guess_longitude": -121.88 }
 @app.route("/guess", methods=["POST"])
 def submit_guess():
-    data = request.get_json(silent=Trues)
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body is required."}), 400
     
