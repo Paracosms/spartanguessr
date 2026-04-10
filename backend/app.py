@@ -50,6 +50,18 @@ def get_placeholder():
 # POST /session
 # Start a new game session
 # Body: { "difficulty": "medium", "max_rounds": 5 }
+
+# todo:
+# refactor to include this payload:
+# {
+#   difficulty: 2,
+#   round_count: 5,
+#   timer_length: "30",
+#   seed: "",
+#   unlabled_map: false,
+#   outside_only: false
+# }
+
 @app.route("/session", methods=["POST"])
 def create_session():
     data = request.get_json()
