@@ -11,8 +11,14 @@ from models import db, GameSession, Image, Guess
 load_dotenv()
 
 app = Flask(__name__)
-#CORS(app, origins=[os.environ.get("ALLOWED_ORIGIN", "http://localhost:5173")])
-CORS(app)
+CORS(app, resources={
+    r"/guess": {
+        "origins": [
+            "https://localhost:5173",
+            "paracosms.github.io"
+        ]
+    }
+})
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///spartanguessr.db")
 db.init_app(app)
