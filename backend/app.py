@@ -1,5 +1,8 @@
 import os
 import io
+import random
+import json
+import requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -27,7 +30,10 @@ MAX_LEADERBOARD_SIZE = 50
 
 with app.app_context():
     db.create_all()
-
+    
+with open("image_map.json", "r") as f:
+        image_map = json.load(f)
+        
 # Health check
 @app.route("/health")
 def health():
@@ -45,6 +51,48 @@ def get_placeholder():
         "difficulty": "hard",
         "title": "Placeholder Image",
     }), 200
+
+#GET /random-image
+#Get data from frontend to fetch a random image from image_map
+@app.route("/random-image")
+def random_image():
+    difficulty = request.args.get("difficulty")
+    outside_enabled = request.args.get("outside_enabled", "false").lower() == "true"
+    seed = request.args.get("seed")
+    
+    rng = random.Random(seed)
+    
+    if outside_enabled:
+        location = rng.choice(["inside", "outside"])
+    else:
+        location = "inside"
+        
+    images = image_map[difficulty][location]
+    if not images:
+        return jsonify({"error": "No image found"}), 404
+    
+    img_name = rng.choice(list(images.keys()))
+    
+    return jsonify({
+        "difficulty": difficulty,
+        "location": location,
+        "image": img_name,
+        "seed": seed
+    }), 200
+    
+#GET/image/<difficulty>/<location>/<image_id>
+#Get image url the convert it to send to frontend
+@app.route("/image/<difficulty>/<location>/<image_id>")
+def get_image(difficulty, location, image_id):
+    try:
+        url = image_map[difficulty][location][image_id]
+        response = requests.get(url)
+        image_binary = io.BytesIO(response.content)
+        return send_file(image_binary, mimetype="image/jpeg")
+    except KeyError:
+        return "Not found", 404
+    except requests.RequestException: 
+        return "Failed fetching image", 500
 
 
 # POST /session
