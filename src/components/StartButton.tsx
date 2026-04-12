@@ -26,6 +26,12 @@ function levelToDifficulty(level: 1 | 2 | 3): DifficultyLabel {
     return "Easy";
 }
 
+function levelToApiDifficulty(level: 1 | 2 | 3): "easy" | "medium" | "hard" {
+    if (level === 1) return "easy";
+    if (level === 3) return "hard";
+    return "medium";
+}
+
 export default function StartButton() {
 
     // DEFAULT STATE
@@ -67,7 +73,21 @@ export default function StartButton() {
 
     async function sendToServer() {
         await preloadGameAssets();
-        navigate("/game", { state: { roundCount: formData.round_count } });
+
+        if (formData.seed == "") {
+            const randomSeed = Array.from({length: 50}, () => Math.floor(Math.random() * 10)).join('');
+            handleSeedChange(randomSeed)
+        }
+
+        navigate("/game", {
+            state: {
+                roundCount: formData.round_count,
+                difficulty: levelToApiDifficulty(formData.difficulty),
+                outsideOnly: formData.outside_only,
+                timerLength: formData.timer_length,
+                seed: formData.seed,
+            },
+        });
 
         try {
             const res = await fetch("API CALL", {

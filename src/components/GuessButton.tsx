@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Point = { x: number; y: number };
 
@@ -8,7 +9,11 @@ type GuessButtonProps = {
     max_rounds: number;
     coordinates: Point | null;
     onRoundAdvance: () => void;
+    onRequestNextImage: () => Promise<void>;
     onGameComplete: () => void;
+    seed: string;
+    autoSubmitSignal?: number;
+    fallbackCoordinates?: Point | null;
 };
 
 export default function GuessButton({
@@ -18,16 +23,31 @@ export default function GuessButton({
     max_rounds,
     coordinates,
     onRoundAdvance,
+    onRequestNextImage,
     onGameComplete,
+    seed,
+    autoSubmitSignal = 0,
+    fallbackCoordinates = null,
 }: GuessButtonProps) {
-    const valid_session =
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const lastAutoSubmitSignal = useRef(0);
+
+    const hasSessionData =
         session_id != null &&
         image_id != null &&
-        round_number != null &&
-        coordinates != null;
+        round_number != null;
 
-    async function sendToServer() {
-        //if (!valid_session || round_number == null) return;
+    const canManuallySubmit = hasSessionData && coordinates != null;
+
+    const sendToServer = useCallback(async (overrideCoordinates?: Point) => {
+        if (!hasSessionData || round_number == null || isSubmitting) {
+            return;
+        }
+
+        const coordinatesToSubmit = overrideCoordinates ?? coordinates;
+        if (!coordinatesToSubmit) {
+            return;
+        }
 
         const guess_packet = {
             session_id: 420,
@@ -35,11 +55,13 @@ export default function GuessButton({
             round_number: 67,
             guess_latitude: coordinates?.x,
             guess_longitude: coordinates?.y,
+            seed,
         };
 
         console.log(guess_packet);
 
         try {
+            setIsSubmitting(true);
             const res = await fetch("https://spartanguessr.onrender.com/guess", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -61,16 +83,31 @@ export default function GuessButton({
                 return;
             }
 
+            await onRequestNextImage();
             onRoundAdvance();
         } catch (err) {
             console.error("FAIL", err);
+        } finally {
+            setIsSubmitting(false);
         }
-    }
+    }, [coordinates, hasSessionData, image_id, isSubmitting, onGameComplete, onRequestNextImage, onRoundAdvance, round_number, seed, session_id, max_rounds]);
 
-    //disabled={!valid_session}
+    useEffect(() => {
+        if (autoSubmitSignal <= lastAutoSubmitSignal.current) {
+            return;
+        }
+
+        lastAutoSubmitSignal.current = autoSubmitSignal;
+        const timeoutCoordinates = fallbackCoordinates ?? { x: 99999, y: 99999 };
+        void sendToServer(timeoutCoordinates);
+    }, [autoSubmitSignal, fallbackCoordinates, sendToServer]);
+
     return (
-        <button className="start-game-button" type="button" onClick={sendToServer} >
+        <button className="start-game-button" type="button" onClick={() => void sendToServer()} disabled={!canManuallySubmit || isSubmitting}>
             Guess
         </button>
     )
 }
+
+
+

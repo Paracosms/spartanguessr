@@ -182,6 +182,7 @@ def submit_guess():
         guess_longitude=guess_lng,
         distance_meters=distance_meters,
         score=score,
+        seed=data.get("seed"),
     )
     db.session.add(guess)
 
