@@ -98,20 +98,14 @@ def save_session(session):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session.session_id}"
-    session_data = session.to_dict()
+    session_json = json.dumps(session.to_dict())
 
+    # Ensure key type is always string for stable cross-client behavior.
     try:
-        redis.hset(key, mapping=session_data)
-    except TypeError:
-        # Compatibility fallback for clients that don't support mapping=.
-        for field, value in session_data.items():
-            redis.hset(key, field, value)
-    except Exception as err:
-        if "wrong number of arguments for 'hset' command" not in str(err).lower():
-            raise
-        # Some client versions accept the call shape but serialize dicts incorrectly.
-        for field, value in session_data.items():
-            redis.hset(key, field, value)
+        redis.delete(key)
+    except Exception:
+        pass
+    redis.set(key, session_json)
 
 
 def load_session(session_id):
@@ -119,6 +113,18 @@ def load_session(session_id):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session_id}"
+
+    # Primary format: JSON string stored with SET.
+    try:
+        raw = redis.get(key)
+        if raw:
+            if isinstance(raw, (bytes, bytearray)):
+                raw = raw.decode("utf-8")
+            return GameSession.from_dict(json.loads(raw))
+    except Exception:
+        # Backward compatibility: if key is hash or old data format, try hash read.
+        pass
+
     data = redis.hgetall(key)
     return GameSession.from_dict(data) if data else None
 
