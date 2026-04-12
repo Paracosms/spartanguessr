@@ -99,11 +99,21 @@ def save_session(session):
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session.session_id}"
     session_data = session.to_dict()
+
+    flattened = []
+    for field, value in session_data.items():
+        flattened.extend([field, value])
+
     try:
         redis.hset(key, mapping=session_data)
     except TypeError:
-        # Compatibility fallback for upstash-redis versions that expect values as a positional arg.
-        redis.hset(key, session_data)
+        # Compatibility fallback for upstash-redis versions without `mapping=` support.
+        redis.hset(key, *flattened)
+    except Exception as err:
+        if "wrong number of arguments for 'hset' command" not in str(err).lower():
+            raise
+        # Some client versions accept the call shape but serialize dicts incorrectly.
+        redis.hset(key, *flattened)
 
 
 def load_session(session_id):
