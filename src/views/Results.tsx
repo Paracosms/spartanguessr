@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 
 const API_URL = "http://localhost:5000";
 
@@ -8,6 +9,11 @@ type LeaderboardEntry = {
     rank: number;
 };
 
+type ResultsRouteState = {
+    totalScore?: number;
+    sessionId?: string;
+} | null;
+
 export default function Results() {
     const [totalScore, setTotalScore] = useState<number>(0);
     const [qualifies, setQualifies] = useState<boolean>(false);
@@ -15,16 +21,8 @@ export default function Results() {
     const [name, setName] = useState<string>("");
     const [submitted, setSubmitted] = useState<boolean>(false);
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-
-    // TODO: Get session_id from navigation state after game ends
-    // For now, using test score to test leaderboard functionality
-    useEffect(() => {
-        // Test score - replace with actual score from game
-        const testScore = 5000;
-        setTotalScore(testScore);
-        checkQualification(testScore);
-        fetchLeaderboard();
-    }, []);
+    const location = useLocation();
+    const routeState = location.state as ResultsRouteState;
 
     async function checkQualification(score: number) {
         try {
@@ -50,6 +48,17 @@ export default function Results() {
             console.error("Failed to fetch leaderboard:", err);
         }
     }
+
+    useEffect(() => {
+        const resolvedScore =
+            typeof routeState?.totalScore === "number" && Number.isFinite(routeState.totalScore)
+                ? routeState.totalScore
+                : 0;
+
+        setTotalScore(resolvedScore);
+        void checkQualification(resolvedScore);
+        void fetchLeaderboard();
+    }, [routeState?.totalScore]);
 
     async function handleSubmitName(e: React.FormEvent) {
         e.preventDefault();

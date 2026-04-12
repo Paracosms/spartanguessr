@@ -19,6 +19,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# setup database using environment variables
 redis_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").strip().rstrip("/")
 redis_token = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or "").strip()
 redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token else None
@@ -31,7 +32,7 @@ IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image
 with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:
     image_map = json.load(f)
 
-
+# convert image_map into an array of all image urls
 def flatten_image_urls(map_data):
     return {
         image_url
@@ -39,16 +40,13 @@ def flatten_image_urls(map_data):
         for location_group in difficulty_group.values()
         for image_url in location_group.values()
     }
-
-
 KNOWN_IMAGE_URLS = flatten_image_urls(image_map)
 
-
+# random 64 character string for session id to prevent guessing and collisions
 def generate_session_id():
-    """Generate a collision-resistant 64-character session ID."""
     return secrets.token_hex(32)
 
-
+# boolean helper function to handle various truthy/falsy inputs
 def parse_bool(value, default=False):
     if value is None:
         return default
@@ -58,9 +56,8 @@ def parse_bool(value, default=False):
         return value != 0
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
-
+# error debugging (i hate redis)
 def format_redis_error(err):
-    """Return a user-safe, actionable message for common Redis failures."""
     message = str(err).strip() or err.__class__.__name__
     lowered = message.lower()
 
@@ -72,7 +69,7 @@ def format_redis_error(err):
         return "Redis connection failed. Check Upstash availability and Render outbound network access."
     return f"Redis request failed: {message}"
 
-
+# locking to prevent simultaneous requests and race condition
 def acquire_session_lock(session_id):
     lock_key = f"session:{session_id}:lock"
     lock_token = uuid.uuid4().hex
@@ -81,7 +78,7 @@ def acquire_session_lock(session_id):
         return None
     return lock_token
 
-
+# unlock
 def release_session_lock(session_id, lock_token):
     lock_key = f"session:{session_id}:lock"
     try:
@@ -89,32 +86,29 @@ def release_session_lock(session_id, lock_token):
         if current_value == lock_token:
             redis.delete(lock_key)
     except Exception:
-        # Lock TTL provides a safe fallback if deletion fails.
+        # lock if failed
         pass
 
-
+# save to redis
 def save_session(session):
-    """Save session to Redis."""
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session.session_id}"
     session_json = json.dumps(session.to_dict())
 
-    # Ensure key type is always string for stable cross-client behavior.
     try:
         redis.delete(key)
     except Exception:
         pass
     redis.set(key, session_json)
 
-
+# load from redis
 def load_session(session_id):
-    """Load session from Redis."""
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session_id}"
 
-    # Primary format: JSON string stored with SET.
+    # store json string, fallback to hash if needed
     try:
         raw = redis.get(key)
         if raw:
@@ -122,38 +116,34 @@ def load_session(session_id):
                 raw = raw.decode("utf-8")
             return GameSession.from_dict(json.loads(raw))
     except Exception:
-        # Backward compatibility: if key is hash or old data format, try hash read.
         pass
 
     data = redis.hgetall(key)
     return GameSession.from_dict(data) if data else None
 
-
+# you can read the function name can't you?
 def save_guess(guess):
-    """Append guess to session's guess list."""
     key = f"session:{guess.session_id}:guesses"
     redis.lpush(key, guess.to_json())
 
-
+# all guesses for a given session
 def load_guesses(session_id):
-    """Load all guesses for a session."""
     key = f"session:{session_id}:guesses"
     guess_jsons = redis.lrange(key, 0, -1)
     return [Guess.from_json(g) for g in reversed(guess_jsons)]
 
-
+# convert (x,y).JPG to x, y
 def resolve_coordinates_from_image_url(image_url):
     if image_url not in KNOWN_IMAGE_URLS:
         return None
 
-    # convert (x,y).JPG to x, y
     match = re.search(r"\((\d+),(\d+)\)", image_url)
     if not match:
         return None
 
     return float(match.group(1)), float(match.group(2))
 
-
+# selects inside/outside based on difficulty and seed
 def select_round_location(image_difficulty, outside_enabled, rng):
     available_locations = [
         location
@@ -172,7 +162,7 @@ def select_round_location(image_difficulty, outside_enabled, rng):
 
     return available_locations[0]
 
-
+# next random image for the session
 def build_round_image(session):
     round_difficulty = get_round_difficulty(session.difficulty, session.max_rounds, session.current_round)
     rng = random.Random(f"{session.seed}:{session.session_id}:{session.current_round}")
@@ -198,7 +188,7 @@ def build_round_image(session):
             "image_url": rng.choice(primary_candidates),
         }
 
-    # Fallback: still use the same difficulty but let location vary if one side is exhausted.
+    # edge case while images run low: still use the same difficulty but let inside/outside vary if one side is exhausted
     same_difficulty_candidates = [
         image_url
         for location_images in difficulty_bucket.values()
@@ -214,7 +204,7 @@ def build_round_image(session):
             "image_url": image_url,
         }
 
-    # Final fallback if all images were already used in this session.
+    # edge case while images run low: if all images were already used in this session
     all_candidates = [
         image_url
         for image_url in difficulty_bucket.get(location, {}).values()
@@ -228,29 +218,17 @@ def build_round_image(session):
 
     return None
 
-# Health check
+# health check
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"}), 200
-
-
-# GET /image/placeholder
-# Fetches placeholder image from private GitHub repo and forwards it
-# so the token never reaches the frontend
-@app.route("/image/placeholder")
-def get_placeholder():
-    return jsonify({
-        "image_id": 0,
-        "image_url": "https://ngocng2910.github.io/images/hard/outside/IMG_8146.JPG",
-        "difficulty": "hard",
-        "title": "Placeholder Image",
-    }), 200
 
 #GET /random-image
 #Get data from frontend to fetch a random image from image_map
 @app.route("/random-image")
 def random_image():
     session_id = request.args.get("session_id", type=str)
+
     if session_id is not None:
         lock_token = acquire_session_lock(session_id)
         if not lock_token:

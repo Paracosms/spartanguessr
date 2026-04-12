@@ -168,7 +168,12 @@ export default function Game() {
                         coordinates={pinPosition}
                         onRoundAdvance={handleRoundAdvance}
                         onRequestNextImage={loadRandomImage}
-                        onGameComplete={() => navigate("/results")}
+                        onGameComplete={(finalScore) => navigate("/results", {
+                            state: {
+                                totalScore: finalScore,
+                                sessionId,
+                            },
+                        })}
                         seed={seed}
                         autoSubmitSignal={autoSubmitSignal}
                         fallbackCoordinates={{ x: 99999, y: 99999 }}

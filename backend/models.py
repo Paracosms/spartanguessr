@@ -1,17 +1,13 @@
-"""
-Redis-based models for Spartan GueSSR game sessions and guesses.
-All data is stored in Upstash Redis with simple key-value patterns.
-
-Session data stored as hash: session:{session_id}
-Guesses stored as list: session:{session_id}:guesses (JSON-serialized)
-"""
+# all data is stored in Upstash Redis with simple key-value patterns.
+# session data stored as hash: session:{session_id}
+# guesses stored as list: session:{session_id}:guesses
 
 import json
 from datetime import UTC, datetime
 
 
 class GameSession:
-    """In-memory representation of a session stored in Redis."""
+    # session properties
     def __init__(self, session_id, difficulty, max_rounds, outside_enabled=False, seed=""):
         self.session_id = session_id
         self.difficulty = difficulty
@@ -24,7 +20,7 @@ class GameSession:
         self.created_at = datetime.now(UTC).isoformat()
 
     def to_dict(self):
-        """Serialize to dict for Redis storage."""
+        # serialize to dict
         return {
             "session_id": str(self.session_id),
             "difficulty": self.difficulty,
@@ -39,7 +35,7 @@ class GameSession:
 
     @staticmethod
     def from_dict(data):
-        """Deserialize from Redis hash."""
+        # deserialize from hash (backwards compatibility)
         if not data:
             return None
         session = GameSession(
@@ -57,7 +53,7 @@ class GameSession:
 
 
 class Guess:
-    """In-memory representation of a guess stored in Redis."""
+    # guess properties
     def __init__(self, session_id, image_url, round_number, guess_latitude, guess_longitude, distance_meters, score, seed=None):
         self.session_id = session_id
         self.image_url = image_url
@@ -68,8 +64,8 @@ class Guess:
         self.score = score
         self.seed = seed
 
+    # serialize to json
     def to_json(self):
-        """Serialize to JSON for Redis storage."""
         return json.dumps({
             "session_id": self.session_id,
             "image_url": self.image_url,
@@ -82,8 +78,8 @@ class Guess:
         })
 
     @staticmethod
+    # deserialize
     def from_json(json_str):
-        """Deserialize from JSON."""
         data = json.loads(json_str)
         return Guess(
             data["session_id"],

@@ -10,7 +10,7 @@ type GuessButtonProps = {
     coordinates: Point | null;
     onRoundAdvance: () => void;
     onRequestNextImage: () => Promise<void>;
-    onGameComplete: () => void;
+    onGameComplete: (finalScore: number) => void;
     seed: string;
     autoSubmitSignal?: number;
     fallbackCoordinates?: Point | null;
@@ -80,7 +80,7 @@ export default function GuessButton({
             console.log("SUCCESS", result);
 
             if (round_number >= max_rounds) {
-                onGameComplete();
+                onGameComplete(result.total_score);
                 return;
             }
 
