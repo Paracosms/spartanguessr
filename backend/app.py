@@ -174,8 +174,8 @@ def submit_guess():
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body is required."}), 400
-    
-            required = ["session_id", "image_url", "round_number", "guess_latitude", "guess_longitude"]
+
+    required = ["session_id", "image_url", "round_number", "guess_latitude", "guess_longitude"]
     missing = [f for f in required if f not in data]
     if missing:
         return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
