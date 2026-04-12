@@ -86,6 +86,8 @@ export default function StartButton() {
                 body: JSON.stringify({
                     difficulty: levelToApiDifficulty(formData.difficulty),
                     max_rounds: formData.round_count,
+                    outside_enabled: formData.outside_only,
+                    seed: normalizedSeed,
                 }),
             });
 
@@ -95,7 +97,7 @@ export default function StartButton() {
                 return;
             }
 
-            const result = (await res.json()) as { session_id: number };
+            const result = (await res.json()) as { session_id: string };
 
             navigate("/game", {
                 state: {

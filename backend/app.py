@@ -3,24 +3,21 @@ import io
 import random
 import json
 import re
+import uuid
+import secrets
 import requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
-from roundTracking import roundTracking
+from roundTracking import get_round_difficulty
 from score_algorithm import score_algorithm
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect, text
-from models import db, GameSession, Guess
+from models import GameSession, Guess
 from upstash_redis import Redis
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///spartanguessr.db")
-db.init_app(app)
 
 redis = Redis(
     url=os.environ.get("UPSTASH_REDIS_REST_URL"),
@@ -29,12 +26,10 @@ redis = Redis(
 
 LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
-
-with app.app_context():
-    db.create_all()
+SESSION_LOCK_TTL_SECONDS = 10
 
 with open("image_map.json", "r") as f:
-        image_map = json.load(f)
+    image_map = json.load(f)
 
 
 def flatten_image_urls(map_data):
@@ -49,6 +44,67 @@ def flatten_image_urls(map_data):
 KNOWN_IMAGE_URLS = flatten_image_urls(image_map)
 
 
+def generate_session_id():
+    """Generate a collision-resistant 64-character session ID."""
+    return secrets.token_hex(32)
+
+
+def parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def acquire_session_lock(session_id):
+    lock_key = f"session:{session_id}:lock"
+    lock_token = uuid.uuid4().hex
+    acquired = redis.set(lock_key, lock_token, nx=True, ex=SESSION_LOCK_TTL_SECONDS)
+    if not acquired:
+        return None
+    return lock_token
+
+
+def release_session_lock(session_id, lock_token):
+    lock_key = f"session:{session_id}:lock"
+    try:
+        current_value = redis.get(lock_key)
+        if current_value == lock_token:
+            redis.delete(lock_key)
+    except Exception:
+        # Lock TTL provides a safe fallback if deletion fails.
+        pass
+
+
+def save_session(session):
+    """Save session to Redis."""
+    key = f"session:{session.session_id}"
+    redis.hset(key, mapping=session.to_dict())
+
+
+def load_session(session_id):
+    """Load session from Redis."""
+    key = f"session:{session_id}"
+    data = redis.hgetall(key)
+    return GameSession.from_dict(data) if data else None
+
+
+def save_guess(guess):
+    """Append guess to session's guess list."""
+    key = f"session:{guess.session_id}:guesses"
+    redis.lpush(key, guess.to_json())
+
+
+def load_guesses(session_id):
+    """Load all guesses for a session."""
+    key = f"session:{session_id}:guesses"
+    guess_jsons = redis.lrange(key, 0, -1)
+    return [Guess.from_json(g) for g in reversed(guess_jsons)]
+
+
 def resolve_coordinates_from_image_url(image_url):
     if image_url not in KNOWN_IMAGE_URLS:
         return None
@@ -59,6 +115,81 @@ def resolve_coordinates_from_image_url(image_url):
         return None
 
     return float(match.group(1)), float(match.group(2))
+
+
+def select_round_location(image_difficulty, outside_enabled, rng):
+    available_locations = [
+        location
+        for location in ("inside", "outside")
+        if image_map.get(image_difficulty, {}).get(location)
+    ]
+    if not available_locations:
+        return None
+
+    if not outside_enabled:
+        return "inside" if "inside" in available_locations else available_locations[0]
+
+    preferred_location = rng.choice(["inside", "outside"])
+    if preferred_location in available_locations:
+        return preferred_location
+
+    return available_locations[0]
+
+
+def build_round_image(session):
+    round_difficulty = get_round_difficulty(session.difficulty, session.max_rounds, session.current_round)
+    rng = random.Random(f"{session.seed}:{session.session_id}:{session.current_round}")
+
+    location = select_round_location(round_difficulty, session.outside_enabled, rng)
+    if not location:
+        return None
+
+    guesses = load_guesses(session.session_id)
+    used_urls = {guess.image_url for guess in guesses}
+
+    difficulty_bucket = image_map.get(round_difficulty, {})
+    primary_candidates = [
+        image_url
+        for image_url in difficulty_bucket.get(location, {}).values()
+        if image_url not in used_urls
+    ]
+
+    if primary_candidates:
+        return {
+            "difficulty": round_difficulty,
+            "location": location,
+            "image_url": rng.choice(primary_candidates),
+        }
+
+    # Fallback: still use the same difficulty but let location vary if one side is exhausted.
+    same_difficulty_candidates = [
+        image_url
+        for location_images in difficulty_bucket.values()
+        for image_url in location_images.values()
+        if image_url not in used_urls
+    ]
+    if same_difficulty_candidates:
+        image_url = rng.choice(same_difficulty_candidates)
+        resolved_location = "outside" if image_url in difficulty_bucket.get("outside", {}).values() else "inside"
+        return {
+            "difficulty": round_difficulty,
+            "location": resolved_location,
+            "image_url": image_url,
+        }
+
+    # Final fallback if all images were already used in this session.
+    all_candidates = [
+        image_url
+        for image_url in difficulty_bucket.get(location, {}).values()
+    ]
+    if all_candidates:
+        return {
+            "difficulty": round_difficulty,
+            "location": location,
+            "image_url": rng.choice(all_candidates),
+        }
+
+    return None
 
 # Health check
 @app.route("/health")
@@ -82,6 +213,49 @@ def get_placeholder():
 #Get data from frontend to fetch a random image from image_map
 @app.route("/random-image")
 def random_image():
+    session_id = request.args.get("session_id", type=str)
+    if session_id is not None:
+        lock_token = acquire_session_lock(session_id)
+        if not lock_token:
+            return jsonify({"error": "Session is busy. Retry request."}), 409
+
+        try:
+            session = load_session(session_id)
+            if not session:
+                return jsonify({"error": "Session not found."}), 404
+
+            if session.current_round > session.max_rounds:
+                return jsonify({
+                    "completed": True,
+                    "round_number": session.current_round,
+                    "max_rounds": session.max_rounds,
+                }), 200
+
+            if session.current_image_url:
+                return jsonify({
+                    "difficulty": get_round_difficulty(session.difficulty, session.max_rounds, session.current_round),
+                    "round_number": session.current_round,
+                    "image_url": session.current_image_url,
+                    "seed": session.seed,
+                }), 200
+
+            round_image = build_round_image(session)
+            if not round_image:
+                return jsonify({"error": "No image found"}), 404
+
+            session.current_image_url = round_image["image_url"]
+            save_session(session)
+
+            return jsonify({
+                "difficulty": round_image["difficulty"],
+                "location": round_image["location"],
+                "image_url": round_image["image_url"],
+                "round_number": session.current_round,
+                "seed": session.seed,
+            }), 200
+        finally:
+            release_session_lock(session_id, lock_token)
+
     difficulty = request.args.get("difficulty")
     outside_enabled = request.args.get("outside_enabled", "false").lower() == "true"
     seed = request.args.get("seed")
@@ -122,22 +296,9 @@ def get_image(difficulty, location, image_id):
     except requests.RequestException: 
         return "Failed fetching image", 500
 
-
 # POST /session
 # Start a new game session
-# Body: { "difficulty": "medium", "max_rounds": 5 }
-
-# todo:
-# refactor to include this payload:
-# {
-#   difficulty: 2,
-#   round_count: 5,
-#   timer_length: "30",
-#   seed: "",
-#   unlabled_map: false,
-#   outside_only: false
-# }
-
+# Body: { "difficulty": "medium", "max_rounds": 5, "outside_enabled": false }
 @app.route("/session", methods=["POST"])
 def create_session():
     data = request.get_json()
@@ -146,23 +307,56 @@ def create_session():
 
     difficulty = data.get("difficulty", "medium")
     max_rounds = data.get("max_rounds", data.get("round_count", 5))
+    outside_enabled = parse_bool(data.get("outside_enabled", data.get("outside_only", False)), default=False)
+    seed = str(data.get("seed", "")).strip()
 
     if difficulty not in ("easy", "medium", "hard"):
         return jsonify({"error": "Invalid difficulty."}), 400
     if not isinstance(max_rounds, int) or max_rounds < 1:
         return jsonify({"error": "max_rounds must be a positive integer."}), 400
 
-    session = GameSession(difficulty=difficulty, max_rounds=max_rounds, total_score=0)
-    db.session.add(session)
-    db.session.commit()
+    session_id = None
+    for _ in range(5):
+        candidate = generate_session_id()
+        if not load_session(candidate):
+            session_id = candidate
+            break
+    if not session_id:
+        return jsonify({"error": "Unable to allocate session. Please retry."}), 503
+
+    session = GameSession(session_id, difficulty, max_rounds, outside_enabled, seed=seed)
+    save_session(session)
 
     return jsonify({
         "session_id": session.session_id,
         "difficulty": session.difficulty,
         "max_rounds": session.max_rounds,
+        "current_round": session.current_round,
+        "outside_enabled": session.outside_enabled,
+        "seed": session.seed,
         "total_score": session.total_score,
-        "created_at": session.created_at.isoformat(),
+        "created_at": session.created_at,
     }), 201
+
+
+# GET /session/<session_id>
+# Return current server-side state for a session.
+@app.route("/session/<session_id>", methods=["GET"])
+def get_session_state(session_id):
+    session = load_session(session_id)
+    if not session:
+        return jsonify({"error": "Session not found."}), 404
+
+    return jsonify({
+        "session_id": session.session_id,
+        "difficulty": session.difficulty,
+        "max_rounds": session.max_rounds,
+        "current_round": session.current_round,
+        "outside_enabled": session.outside_enabled,
+        "current_image_url": session.current_image_url,
+        "total_score": session.total_score,
+        "created_at": session.created_at,
+    }), 200
 
 
 # POST /guess
@@ -180,65 +374,97 @@ def submit_guess():
     if missing:
         return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
 
-    session = db.session.get(GameSession, data["session_id"])
-    if not session:
-        return jsonify({"error": "Session not found. Please restart the game."}), 404
+    session_id = data["session_id"]
+    lock_token = acquire_session_lock(session_id)
+    if not lock_token:
+        return jsonify({"error": "Session is busy. Retry guess submission."}), 409
 
-    image_url = str(data.get("image_url", "")).strip()
-    coordinates = resolve_coordinates_from_image_url(image_url)
-    if not coordinates:
-        return jsonify({"error": "Unable to resolve coordinates from image_url."}), 404
+    try:
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found. Please restart the game."}), 404
 
-    guess_lat = data.get("guess_latitude")
-    guess_lng = data.get("guess_longitude")
-    
-    if guess_lat is None or guess_lng is None:
+        if not isinstance(data.get("round_number"), int):
+            return jsonify({"error": "round_number must be an integer."}), 400
+
+        if data["round_number"] != session.current_round:
+            return jsonify({
+                "error": "Round out of sync. Request the current round image before guessing.",
+                "expected_round": session.current_round,
+            }), 409
+
+        if not session.current_image_url:
+            return jsonify({"error": "No active round image. Request a round image first."}), 409
+
+        image_url = str(data.get("image_url", "")).strip()
+        if image_url != session.current_image_url:
+            return jsonify({"error": "image_url does not match the active round image."}), 409
+
+        coordinates = resolve_coordinates_from_image_url(image_url)
+        if not coordinates:
+            return jsonify({"error": "Unable to resolve coordinates from image_url."}), 404
+
+        guess_lat = data.get("guess_latitude")
+        guess_lng = data.get("guess_longitude")
+
+        if guess_lat is None or guess_lng is None:
             return jsonify({"error": "Missing coordinates"}), 400
-    # Calculate distance and score
-    score, distance_meters = score_algorithm(
-        [guess_lat, guess_lng],
-        [coordinates[0], coordinates[1]]
-    )
 
-    # Save guess
-    guess = Guess(
-        session_id=session.session_id,
-        image_url=image_url,
-        round_number=data["round_number"],
-        guess_latitude=guess_lat,
-        guess_longitude=guess_lng,
-        distance_meters=distance_meters,
-        score=score,
-        seed=data.get("seed"),
-    )
-    db.session.add(guess)
+        # Calculate distance and score
+        score, distance_meters = score_algorithm(
+            [guess_lat, guess_lng],
+            [coordinates[0], coordinates[1]]
+        )
 
-    # Update session total score
-    session.total_score += score
-    db.session.commit()
+        # Save guess
+        guess = Guess(
+            session.session_id,
+            image_url,
+            data["round_number"],
+            guess_lat,
+            guess_lng,
+            distance_meters,
+            score,
+            data.get("seed") or session.seed,
+        )
+        save_guess(guess)
 
-    return jsonify({
-        "round_number": data["round_number"],
-        "distance_meters": round(distance_meters, 2),
-        "score": score,
-        "total_score": session.total_score,
-        # Reveal correct location AFTER guess is submitted
-        "actual_latitude": coordinates[0],
-        "actual_longitude": coordinates[1],
-        "guess_latitude": guess_lat,
-        "guess_longitude": guess_lng
-    }), 200
+        # Update session total score and round
+        session.total_score += score
+
+        if session.current_round < session.max_rounds:
+            session.current_round += 1
+        else:
+            session.current_round = session.max_rounds + 1
+        session.current_image_url = None
+        save_session(session)
+
+        return jsonify({
+            "round_number": data["round_number"],
+            "distance_meters": round(distance_meters, 2),
+            "score": score,
+            "total_score": session.total_score,
+            "game_complete": session.current_round > session.max_rounds,
+            "next_round_number": session.current_round if session.current_round <= session.max_rounds else None,
+            # Reveal correct location AFTER guess is submitted
+            "actual_latitude": coordinates[0],
+            "actual_longitude": coordinates[1],
+            "guess_latitude": guess_lat,
+            "guess_longitude": guess_lng
+        }), 200
+    finally:
+        release_session_lock(session_id, lock_token)
 
 
 # GET /session/<session_id>/results
 # Get all round results for a session (final summary)
-@app.route("/session/<int:session_id>/results")
+@app.route("/session/<session_id>/results")
 def get_results(session_id):
-    session = db.session.get(GameSession, session_id)
+    session = load_session(session_id)
     if not session:
         return jsonify({"error": "Session not found."}), 404
 
-    guesses = Guess.query.filter_by(session_id=session_id).order_by(Guess.round_number).all()
+    guesses = load_guesses(session_id)
 
     rounds = [{
         "round_number": g.round_number,

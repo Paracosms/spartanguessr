@@ -7,7 +7,7 @@ type Point = { x: number; y: number };
 type ApiDifficulty = "easy" | "medium" | "hard";
 
 type GameRouteState = {
-    sessionId?: number;
+    sessionId?: string;
     roundCount?: number;
     difficulty?: ApiDifficulty;
     outsideOnly?: boolean;
@@ -55,10 +55,14 @@ export default function Game() {
     const loadRandomImage = useCallback(async () => {
         try {
             setRoundImageUrl(null);
-            const params = new URLSearchParams({
-                difficulty,
-                outside_enabled: outsideOnly ? "true" : "false",
-            });
+            const params = new URLSearchParams();
+
+            if (sessionId != null) {
+                params.set("session_id", String(sessionId));
+            } else {
+                params.set("difficulty", difficulty);
+                params.set("outside_enabled", outsideOnly ? "true" : "false");
+            }
 
             if (seed) {
                 params.set("seed", seed);
@@ -71,18 +75,23 @@ export default function Game() {
             }
 
             const randomImage = (await randomImageRes.json()) as {
+                completed?: boolean;
                 difficulty: string;
                 location: string;
                 image: string;
                 image_url: string;
             };
 
+            if (randomImage.completed) {
+                return;
+            }
+
             setRoundImageUrl(randomImage.image_url);
             setTimeRemaining(roundTimerSeconds);
         } catch (err) {
             console.error("FAIL", err);
         }
-    }, [difficulty, outsideOnly, roundTimerSeconds, seed]);
+    }, [difficulty, outsideOnly, roundTimerSeconds, seed, sessionId]);
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -128,14 +137,16 @@ export default function Game() {
     return (
         <>
 
-            <img src={roundImageUrl ?? ""}
-                 alt="Current round location"
-                 draggable={false}
-                 style={{
-                    width: "100vw",
-                    height: "100vh",
-                }}
-            />
+            {roundImageUrl && (
+                <img src={roundImageUrl}
+                     alt="Current round location"
+                     draggable={false}
+                     style={{
+                        width: "100vw",
+                        height: "100vh",
+                    }}
+                />
+            )}
 
             <div className="position-absolute top-0 start-50 translate-middle-x p-3" >
                 <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>

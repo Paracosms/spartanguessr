@@ -1,27 +1,97 @@
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+"""
+Redis-based models for Spartan GueSSR game sessions and guesses.
+All data is stored in Upstash Redis with simple key-value patterns.
 
-db = SQLAlchemy()
+Session data stored as hash: session:{session_id}
+Guesses stored as list: session:{session_id}:guesses (JSON-serialized)
+"""
 
-class GameSession(db.Model):
-    session_id = db.Column(db.Integer, primary_key=True)
-    difficulty = db.Column(db.String(10), nullable=False)
-    max_rounds = db.Column(db.Integer, nullable=False)
-    total_score = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+import json
+from datetime import UTC, datetime
 
-class Image(db.Model):
-    image_id = db.Column(db.Integer, primary_key=True)
-    latitude = db.Column(db.Float, nullable=False)
-    longitude = db.Column(db.Float, nullable=False)
 
-class Guess(db.Model):
-    guess_id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.Integer, db.ForeignKey("game_session.session_id"))
-    image_url = db.Column(db.String(500), nullable=False)
-    round_number = db.Column(db.Integer, nullable=False)
-    guess_latitude = db.Column(db.Float)
-    guess_longitude = db.Column(db.Float)
-    distance_meters = db.Column(db.Float)
-    score = db.Column(db.Integer)
-    seed = db.Column(db.String(50), nullable=True)
+class GameSession:
+    """In-memory representation of a session stored in Redis."""
+    def __init__(self, session_id, difficulty, max_rounds, outside_enabled=False, seed=""):
+        self.session_id = session_id
+        self.difficulty = difficulty
+        self.max_rounds = max_rounds
+        self.current_round = 1
+        self.outside_enabled = outside_enabled
+        self.seed = seed
+        self.current_image_url = None
+        self.total_score = 0
+        self.created_at = datetime.now(UTC).isoformat()
+
+    def to_dict(self):
+        """Serialize to dict for Redis storage."""
+        return {
+            "session_id": str(self.session_id),
+            "difficulty": self.difficulty,
+            "max_rounds": str(self.max_rounds),
+            "current_round": str(self.current_round),
+            "outside_enabled": "true" if self.outside_enabled else "false",
+            "seed": self.seed,
+            "current_image_url": self.current_image_url or "",
+            "total_score": str(self.total_score),
+            "created_at": self.created_at,
+        }
+
+    @staticmethod
+    def from_dict(data):
+        """Deserialize from Redis hash."""
+        if not data:
+            return None
+        session = GameSession(
+            str(data.get("session_id", "")),
+            data.get("difficulty", "medium"),
+            int(data.get("max_rounds", 5)),
+            data.get("outside_enabled", "false") == "true",
+            data.get("seed", ""),
+        )
+        session.current_round = int(data.get("current_round", 1))
+        session.current_image_url = data.get("current_image_url") or None
+        session.total_score = int(data.get("total_score", 0))
+        session.created_at = data.get("created_at", datetime.now(UTC).isoformat())
+        return session
+
+
+class Guess:
+    """In-memory representation of a guess stored in Redis."""
+    def __init__(self, session_id, image_url, round_number, guess_latitude, guess_longitude, distance_meters, score, seed=None):
+        self.session_id = session_id
+        self.image_url = image_url
+        self.round_number = round_number
+        self.guess_latitude = guess_latitude
+        self.guess_longitude = guess_longitude
+        self.distance_meters = distance_meters
+        self.score = score
+        self.seed = seed
+
+    def to_json(self):
+        """Serialize to JSON for Redis storage."""
+        return json.dumps({
+            "session_id": self.session_id,
+            "image_url": self.image_url,
+            "round_number": self.round_number,
+            "guess_latitude": self.guess_latitude,
+            "guess_longitude": self.guess_longitude,
+            "distance_meters": self.distance_meters,
+            "score": self.score,
+            "seed": self.seed,
+        })
+
+    @staticmethod
+    def from_json(json_str):
+        """Deserialize from JSON."""
+        data = json.loads(json_str)
+        return Guess(
+            data["session_id"],
+            data["image_url"],
+            data["round_number"],
+            data["guess_latitude"],
+            data["guess_longitude"],
+            data["distance_meters"],
+            data["score"],
+            data.get("seed"),
+        )

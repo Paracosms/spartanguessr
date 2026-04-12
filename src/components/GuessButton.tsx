@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Point = { x: number; y: number };
 
 type GuessButtonProps = {
-    session_id: number | null;
+    session_id: string | null;
     image_url: string | null;
     round_number: number | null;
     max_rounds: number;
