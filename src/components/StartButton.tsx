@@ -14,6 +14,8 @@ type GameFormData = {
     outside_only: boolean;
 };
 
+const API_BASE_URL = "https://spartanguessr.onrender.com";
+
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
     Medium: 2,
@@ -79,35 +81,22 @@ export default function StartButton() {
             handleSeedChange(randomSeed)
         }
 
-        navigate("/game", {
-            state: {
-                roundCount: formData.round_count,
-                difficulty: levelToApiDifficulty(formData.difficulty),
-                outsideOnly: formData.outside_only,
-                timerLength: formData.timer_length,
-                seed: formData.seed,
-            },
-        });
-
         try {
-            const res = await fetch("API CALL", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+            navigate("/game", {
+                state: {
+                    sessionId: result.session_id,
+                    roundCount: formData.round_count,
+                    difficulty: levelToApiDifficulty(formData.difficulty),
+                    outsideOnly: formData.outside_only,
+                    timerLength: formData.timer_length,
+                    seed: formData.seed,
+                },
             });
-
-            if (!res.ok) {
-                console.error("FAIL", `Server error: ${res.status}`);
-                return;
-            }
-
-            const result = await res.json();
-
-            // TODO: handle result before proceeding to /game
 
             console.log("SUCCESS", result);
         } catch (err) {
             console.error("FAIL", err);
+            alert("Unable to start a session. Please try again.");
         }
     }
 

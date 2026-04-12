@@ -18,7 +18,7 @@ class Image(db.Model):
 class Guess(db.Model):
     guess_id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey("game_session.session_id"))
-    image_id = db.Column(db.Integer, db.ForeignKey("image.image_id"))
+    image_url = db.Column(db.String(500), nullable=False)
     round_number = db.Column(db.Integer, nullable=False)
     guess_latitude = db.Column(db.Float)
     guess_longitude = db.Column(db.Float)

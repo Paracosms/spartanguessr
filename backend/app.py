@@ -2,6 +2,7 @@ import os
 import io
 import random
 import json
+import re
 import requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
@@ -9,7 +10,8 @@ from dotenv import load_dotenv
 from roundTracking import roundTracking
 from score_algorithm import score_algorithm
 from flask_sqlalchemy import SQLAlchemy
-from models import db, GameSession, Image, Guess
+from sqlalchemy import inspect, text
+from models import db, GameSession, Guess
 from upstash_redis import Redis
 
 load_dotenv()
@@ -30,10 +32,34 @@ MAX_LEADERBOARD_SIZE = 50
 
 with app.app_context():
     db.create_all()
-    
+
 with open("image_map.json", "r") as f:
         image_map = json.load(f)
-        
+
+
+def flatten_image_urls(map_data):
+    return {
+        image_url
+        for difficulty_group in map_data.values()
+        for location_group in difficulty_group.values()
+        for image_url in location_group.values()
+    }
+
+
+KNOWN_IMAGE_URLS = flatten_image_urls(image_map)
+
+
+def resolve_coordinates_from_image_url(image_url):
+    if image_url not in KNOWN_IMAGE_URLS:
+        return None
+
+    # convert (x,y).JPG to x, y
+    match = re.search(r"\((\d+),(\d+)\)", image_url)
+    if not match:
+        return None
+
+    return float(match.group(1)), float(match.group(2))
+
 # Health check
 @app.route("/health")
 def health():
@@ -72,11 +98,13 @@ def random_image():
         return jsonify({"error": "No image found"}), 404
     
     img_name = rng.choice(list(images.keys()))
-    
+    image_url = images[img_name]
+
     return jsonify({
         "difficulty": difficulty,
         "location": location,
         "image": img_name,
+        "image_url": image_url,
         "seed": seed
     }), 200
     
@@ -117,7 +145,7 @@ def create_session():
         return jsonify({"error": "Request body is required."}), 400
 
     difficulty = data.get("difficulty", "medium")
-    max_rounds = data.get("max_rounds", 5)
+    max_rounds = data.get("max_rounds", data.get("round_count", 5))
 
     if difficulty not in ("easy", "medium", "hard"):
         return jsonify({"error": "Invalid difficulty."}), 400
@@ -139,7 +167,7 @@ def create_session():
 
 # POST /guess
 # Submit a guess for a round
-# Body: { "session_id": 1, "image_id": 12, "round_number": 1,
+# Body: { "session_id": 1, "image_url": "https://...", "round_number": 1,
 #         "guess_latitude": 37.33, "guess_longitude": -121.88 }
 @app.route("/guess", methods=["POST"])
 def submit_guess():
@@ -147,9 +175,7 @@ def submit_guess():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
     
-    
-
-    required = ["session_id", "image_id", "round_number", "guess_latitude", "guess_longitude"]
+            required = ["session_id", "image_url", "round_number", "guess_latitude", "guess_longitude"]
     missing = [f for f in required if f not in data]
     if missing:
         return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
@@ -158,9 +184,10 @@ def submit_guess():
     if not session:
         return jsonify({"error": "Session not found. Please restart the game."}), 404
 
-    image = db.session.get(Image, data["image_id"])
-    if not image:
-        return jsonify({"error": "Image not found."}), 404
+    image_url = str(data.get("image_url", "")).strip()
+    coordinates = resolve_coordinates_from_image_url(image_url)
+    if not coordinates:
+        return jsonify({"error": "Unable to resolve coordinates from image_url."}), 404
 
     guess_lat = data.get("guess_latitude")
     guess_lng = data.get("guess_longitude")
@@ -170,13 +197,13 @@ def submit_guess():
     # Calculate distance and score
     score, distance_meters = score_algorithm(
         [guess_lat, guess_lng],
-        [image.latitude, image.longitude]
+        [coordinates[0], coordinates[1]]
     )
 
     # Save guess
     guess = Guess(
         session_id=session.session_id,
-        image_id=image.image_id,
+        image_url=image_url,
         round_number=data["round_number"],
         guess_latitude=guess_lat,
         guess_longitude=guess_lng,
@@ -196,8 +223,8 @@ def submit_guess():
         "score": score,
         "total_score": session.total_score,
         # Reveal correct location AFTER guess is submitted
-        "actual_latitude": image.latitude,
-        "actual_longitude": image.longitude,
+        "actual_latitude": coordinates[0],
+        "actual_longitude": coordinates[1],
         "guess_latitude": guess_lat,
         "guess_longitude": guess_lng
     }), 200

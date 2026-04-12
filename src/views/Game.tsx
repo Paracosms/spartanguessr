@@ -7,6 +7,7 @@ type Point = { x: number; y: number };
 type ApiDifficulty = "easy" | "medium" | "hard";
 
 type GameRouteState = {
+    sessionId?: number;
     roundCount?: number;
     difficulty?: ApiDifficulty;
     outsideOnly?: boolean;
@@ -27,6 +28,7 @@ export default function Game() {
 
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
+    const sessionId = gameState?.sessionId ?? null;
     const maxRounds =
         typeof requestedRoundCount === "number" && requestedRoundCount > 0
             ? requestedRoundCount
@@ -38,10 +40,6 @@ export default function Game() {
     const seed = (gameState?.seed ?? "").trim();
     const timerSeconds = timerLength === "none" ? null : Number.parseInt(timerLength, 10);
     const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
-
-    // TEST VALUES
-    const [sessionId] = useState<number | null>(420);
-    const [imageId] = useState<number | null>(69);
 
     function formatTimer(totalSeconds: number | null) {
         if (totalSeconds == null) {
@@ -76,14 +74,15 @@ export default function Game() {
                 difficulty: string;
                 location: string;
                 image: string;
+                image_url: string;
             };
 
-            const nextImageUrl = `${API_BASE_URL}/image/${randomImage.difficulty}/${randomImage.location}/${randomImage.image}`;
-            setRoundImageUrl(nextImageUrl);
+            setRoundImageUrl(randomImage.image_url);
+            setTimeRemaining(roundTimerSeconds);
         } catch (err) {
             console.error("FAIL", err);
         }
-    }, [difficulty, outsideOnly, seed]);
+    }, [difficulty, outsideOnly, roundTimerSeconds, seed]);
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -97,11 +96,9 @@ export default function Game() {
 
     useEffect(() => {
         if (roundTimerSeconds == null || !roundImageUrl) {
-            setTimeRemaining(roundTimerSeconds);
             return;
         }
 
-        setTimeRemaining(roundTimerSeconds);
         const intervalId = window.setInterval(() => {
             setTimeRemaining((previousTime) => {
                 if (previousTime == null) {
@@ -154,7 +151,7 @@ export default function Game() {
                     <Minimap pinPosition={pinPosition} onPinChange={setPinPosition} />
                     <GuessButton
                         session_id={sessionId}
-                        image_id={imageId}
+                        image_url={roundImageUrl}
                         round_number={roundNumber}
                         max_rounds={maxRounds}
                         coordinates={pinPosition}

@@ -4,7 +4,7 @@ type Point = { x: number; y: number };
 
 type GuessButtonProps = {
     session_id: number | null;
-    image_id: number | null;
+    image_url: string | null;
     round_number: number | null;
     max_rounds: number;
     coordinates: Point | null;
@@ -18,7 +18,7 @@ type GuessButtonProps = {
 
 export default function GuessButton({
     session_id,
-    image_id,
+    image_url,
     round_number,
     max_rounds,
     coordinates,
@@ -34,7 +34,7 @@ export default function GuessButton({
 
     const hasSessionData =
         session_id != null &&
-        image_id != null &&
+        image_url != null &&
         round_number != null;
 
     const canManuallySubmit = hasSessionData && coordinates != null;
@@ -50,11 +50,11 @@ export default function GuessButton({
         }
 
         const guess_packet = {
-            session_id: 420,
-            image_id: 69,
-            round_number: 67,
-            guess_latitude: coordinates?.x,
-            guess_longitude: coordinates?.y,
+            session_id,
+            image_url,
+            round_number,
+            guess_latitude: coordinatesToSubmit.x,
+            guess_longitude: coordinatesToSubmit.y,
             seed,
         };
 
@@ -69,12 +69,13 @@ export default function GuessButton({
             });
 
             if (!res.ok) {
-                console.error("FAIL", `Server error: ${res.status}`);
+                const errorResult = await res.json();
+                alert(`Error: ${errorResult.error || 'Unknown error'}`);
+                console.error("FAIL", `Server error: ${res.status}`, errorResult);
                 return;
             }
             const result = await res.json();
-
-            // TODO: handle result before proceeding to next round
+            alert(`Round ${round_number} score: ${result.score}`);
 
             console.log("SUCCESS", result);
 
@@ -90,7 +91,7 @@ export default function GuessButton({
         } finally {
             setIsSubmitting(false);
         }
-    }, [coordinates, hasSessionData, image_id, isSubmitting, onGameComplete, onRequestNextImage, onRoundAdvance, round_number, seed, session_id, max_rounds]);
+    }, [coordinates, hasSessionData, image_url, isSubmitting, onGameComplete, onRequestNextImage, onRoundAdvance, round_number, seed, session_id, max_rounds]);
 
     useEffect(() => {
         if (autoSubmitSignal <= lastAutoSubmitSignal.current) {
@@ -108,6 +109,3 @@ export default function GuessButton({
         </button>
     )
 }
-
-
-
