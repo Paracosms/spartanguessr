@@ -59,6 +59,20 @@ def parse_bool(value, default=False):
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
+def format_redis_error(err):
+    """Return a user-safe, actionable message for common Redis failures."""
+    message = str(err).strip() or err.__class__.__name__
+    lowered = message.lower()
+
+    if "401" in lowered or "403" in lowered or "unauthorized" in lowered or "forbidden" in lowered:
+        return "Redis authentication failed. Verify UPSTASH_REDIS_REST_TOKEN."
+    if "name or service not known" in lowered or "failed to resolve" in lowered or "dns" in lowered:
+        return "Redis URL is invalid or unreachable. Verify UPSTASH_REDIS_REST_URL."
+    if "timed out" in lowered or "timeout" in lowered or "connection" in lowered:
+        return "Redis connection failed. Check Upstash availability and Render outbound network access."
+    return f"Redis request failed: {message}"
+
+
 def acquire_session_lock(session_id):
     lock_key = f"session:{session_id}:lock"
     lock_token = uuid.uuid4().hex
@@ -336,7 +350,7 @@ def create_session():
         return jsonify({"error": str(err)}), 503
     except Exception as err:
         app.logger.exception("Failed to create session")
-        return jsonify({"error": "Session backend unavailable. Please try again."}), 503
+        return jsonify({"error": format_redis_error(err)}), 503
 
     return jsonify({
         "session_id": session.session_id,

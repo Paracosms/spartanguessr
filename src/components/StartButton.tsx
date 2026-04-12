@@ -92,8 +92,18 @@ export default function StartButton() {
             });
 
             if (!res.ok) {
-                console.error("FAIL", `Server error: ${res.status}`);
-                alert("Unable to start a session. Please try again.");
+                let serverMessage = "Unable to start a session. Please try again.";
+                try {
+                    const errorBody = (await res.json()) as { error?: string };
+                    if (errorBody?.error) {
+                        serverMessage = errorBody.error;
+                    }
+                } catch {
+                    // Ignore non-JSON responses and keep the default message.
+                }
+
+                console.error("FAIL", `Server error: ${res.status}`, serverMessage);
+                alert(serverMessage);
                 return;
             }
 
