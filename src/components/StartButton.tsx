@@ -76,12 +76,27 @@ export default function StartButton() {
     async function sendToServer() {
         await preloadGameAssets();
 
-        if (formData.seed == "") {
-            const randomSeed = Array.from({length: 50}, () => Math.floor(Math.random() * 10)).join('');
-            handleSeedChange(randomSeed)
-        }
+        const normalizedSeed =
+            formData.seed.trim() || Array.from({ length: 50 }, () => Math.floor(Math.random() * 10)).join("");
 
         try {
+            const res = await fetch(`${API_BASE_URL}/session`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    difficulty: levelToApiDifficulty(formData.difficulty),
+                    max_rounds: formData.round_count,
+                }),
+            });
+
+            if (!res.ok) {
+                console.error("FAIL", `Server error: ${res.status}`);
+                alert("Unable to start a session. Please try again.");
+                return;
+            }
+
+            const result = (await res.json()) as { session_id: number };
+
             navigate("/game", {
                 state: {
                     sessionId: result.session_id,
@@ -89,7 +104,7 @@ export default function StartButton() {
                     difficulty: levelToApiDifficulty(formData.difficulty),
                     outsideOnly: formData.outside_only,
                     timerLength: formData.timer_length,
-                    seed: formData.seed,
+                    seed: normalizedSeed,
                 },
             });
 
