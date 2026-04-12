@@ -14,6 +14,8 @@ type GameFormData = {
     outside_only: boolean;
 };
 
+const API_BASE_URL = "https://spartanguessr.onrender.com";
+
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
     Medium: 2,
@@ -74,40 +76,54 @@ export default function StartButton() {
     async function sendToServer() {
         await preloadGameAssets();
 
-        if (formData.seed == "") {
-            const randomSeed = Array.from({length: 50}, () => Math.floor(Math.random() * 10)).join('');
-            handleSeedChange(randomSeed)
-        }
-
-        navigate("/game", {
-            state: {
-                roundCount: formData.round_count,
-                difficulty: levelToApiDifficulty(formData.difficulty),
-                outsideOnly: formData.outside_only,
-                timerLength: formData.timer_length,
-                seed: formData.seed,
-            },
-        });
+        const normalizedSeed =
+            formData.seed.trim() || Array.from({ length: 50 }, () => Math.floor(Math.random() * 10)).join("");
 
         try {
-            const res = await fetch("API CALL", {
+            const res = await fetch(`${API_BASE_URL}/session`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    difficulty: levelToApiDifficulty(formData.difficulty),
+                    max_rounds: formData.round_count,
+                    outside_enabled: formData.outside_only,
+                    seed: normalizedSeed,
+                }),
             });
 
             if (!res.ok) {
-                console.error("FAIL", `Server error: ${res.status}`);
+                let serverMessage = "Unable to start a session. Please try again.";
+                try {
+                    const errorBody = (await res.json()) as { error?: string };
+                    if (errorBody?.error) {
+                        serverMessage = errorBody.error;
+                    }
+                } catch {
+                    // Ignore non-JSON responses and keep the default message.
+                }
+
+                console.error("FAIL", `Server error: ${res.status}`, serverMessage);
+                alert(serverMessage);
                 return;
             }
 
-            const result = await res.json();
+            const result = (await res.json()) as { session_id: string };
 
-            // TODO: handle result before proceeding to /game
+            navigate("/game", {
+                state: {
+                    sessionId: result.session_id,
+                    roundCount: formData.round_count,
+                    difficulty: levelToApiDifficulty(formData.difficulty),
+                    outsideOnly: formData.outside_only,
+                    timerLength: formData.timer_length,
+                    seed: normalizedSeed,
+                },
+            });
 
             console.log("SUCCESS", result);
         } catch (err) {
             console.error("FAIL", err);
+            alert("Unable to start a session. Please try again.");
         }
     }
 

@@ -7,6 +7,7 @@ type Point = { x: number; y: number };
 type ApiDifficulty = "easy" | "medium" | "hard";
 
 type GameRouteState = {
+    sessionId?: string;
     roundCount?: number;
     difficulty?: ApiDifficulty;
     outsideOnly?: boolean;
@@ -27,6 +28,7 @@ export default function Game() {
 
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
+    const sessionId = gameState?.sessionId ?? null;
     const maxRounds =
         typeof requestedRoundCount === "number" && requestedRoundCount > 0
             ? requestedRoundCount
@@ -38,10 +40,6 @@ export default function Game() {
     const seed = (gameState?.seed ?? "").trim();
     const timerSeconds = timerLength === "none" ? null : Number.parseInt(timerLength, 10);
     const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
-
-    // TEST VALUES
-    const [sessionId] = useState<number | null>(420);
-    const [imageId] = useState<number | null>(69);
 
     function formatTimer(totalSeconds: number | null) {
         if (totalSeconds == null) {
@@ -57,10 +55,14 @@ export default function Game() {
     const loadRandomImage = useCallback(async () => {
         try {
             setRoundImageUrl(null);
-            const params = new URLSearchParams({
-                difficulty,
-                outside_enabled: outsideOnly ? "true" : "false",
-            });
+            const params = new URLSearchParams();
+
+            if (sessionId != null) {
+                params.set("session_id", String(sessionId));
+            } else {
+                params.set("difficulty", difficulty);
+                params.set("outside_enabled", outsideOnly ? "true" : "false");
+            }
 
             if (seed) {
                 params.set("seed", seed);
@@ -73,17 +75,23 @@ export default function Game() {
             }
 
             const randomImage = (await randomImageRes.json()) as {
+                completed?: boolean;
                 difficulty: string;
                 location: string;
                 image: string;
+                image_url: string;
             };
 
-            const nextImageUrl = `${API_BASE_URL}/image/${randomImage.difficulty}/${randomImage.location}/${randomImage.image}`;
-            setRoundImageUrl(nextImageUrl);
+            if (randomImage.completed) {
+                return;
+            }
+
+            setRoundImageUrl(randomImage.image_url);
+            setTimeRemaining(roundTimerSeconds);
         } catch (err) {
             console.error("FAIL", err);
         }
-    }, [difficulty, outsideOnly, seed]);
+    }, [difficulty, outsideOnly, roundTimerSeconds, seed, sessionId]);
 
     useEffect(() => {
         const timeoutId = window.setTimeout(() => {
@@ -97,11 +105,9 @@ export default function Game() {
 
     useEffect(() => {
         if (roundTimerSeconds == null || !roundImageUrl) {
-            setTimeRemaining(roundTimerSeconds);
             return;
         }
 
-        setTimeRemaining(roundTimerSeconds);
         const intervalId = window.setInterval(() => {
             setTimeRemaining((previousTime) => {
                 if (previousTime == null) {
@@ -131,14 +137,16 @@ export default function Game() {
     return (
         <>
 
-            <img src={roundImageUrl ?? ""}
-                 alt="Current round location"
-                 draggable={false}
-                 style={{
-                    width: "100vw",
-                    height: "100vh",
-                }}
-            />
+            {roundImageUrl && (
+                <img src={roundImageUrl}
+                     alt="Current round location"
+                     draggable={false}
+                     style={{
+                        width: "100vw",
+                        height: "100vh",
+                    }}
+                />
+            )}
 
             <div className="position-absolute top-0 start-50 translate-middle-x p-3" >
                 <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
@@ -154,13 +162,18 @@ export default function Game() {
                     <Minimap pinPosition={pinPosition} onPinChange={setPinPosition} />
                     <GuessButton
                         session_id={sessionId}
-                        image_id={imageId}
+                        image_url={roundImageUrl}
                         round_number={roundNumber}
                         max_rounds={maxRounds}
                         coordinates={pinPosition}
                         onRoundAdvance={handleRoundAdvance}
                         onRequestNextImage={loadRandomImage}
-                        onGameComplete={() => navigate("/results")}
+                        onGameComplete={(finalScore) => navigate("/results", {
+                            state: {
+                                totalScore: finalScore,
+                                sessionId,
+                            },
+                        })}
                         seed={seed}
                         autoSubmitSignal={autoSubmitSignal}
                         fallbackCoordinates={{ x: 99999, y: 99999 }}
