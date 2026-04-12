@@ -100,20 +100,18 @@ def save_session(session):
     key = f"session:{session.session_id}"
     session_data = session.to_dict()
 
-    flattened = []
-    for field, value in session_data.items():
-        flattened.extend([field, value])
-
     try:
         redis.hset(key, mapping=session_data)
     except TypeError:
-        # Compatibility fallback for upstash-redis versions without `mapping=` support.
-        redis.hset(key, *flattened)
+        # Compatibility fallback for clients that don't support mapping=.
+        for field, value in session_data.items():
+            redis.hset(key, field, value)
     except Exception as err:
         if "wrong number of arguments for 'hset' command" not in str(err).lower():
             raise
         # Some client versions accept the call shape but serialize dicts incorrectly.
-        redis.hset(key, *flattened)
+        for field, value in session_data.items():
+            redis.hset(key, field, value)
 
 
 def load_session(session_id):
