@@ -19,16 +19,16 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-redis = Redis(
-    url=os.environ.get("UPSTASH_REDIS_REST_URL"),
-    token=os.environ.get("UPSTASH_REDIS_REST_TOKEN")
-)
+redis_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").strip().rstrip("/")
+redis_token = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or "").strip()
+redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token else None
 
 LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
 SESSION_LOCK_TTL_SECONDS = 10
 
-with open("image_map.json", "r") as f:
+IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image_map.json")
+with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:
     image_map = json.load(f)
 
 
@@ -81,12 +81,16 @@ def release_session_lock(session_id, lock_token):
 
 def save_session(session):
     """Save session to Redis."""
+    if redis is None:
+        raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session.session_id}"
     redis.hset(key, mapping=session.to_dict())
 
 
 def load_session(session_id):
     """Load session from Redis."""
+    if redis is None:
+        raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session_id}"
     data = redis.hgetall(key)
     return GameSession.from_dict(data) if data else None
@@ -315,17 +319,24 @@ def create_session():
     if not isinstance(max_rounds, int) or max_rounds < 1:
         return jsonify({"error": "max_rounds must be a positive integer."}), 400
 
-    session_id = None
-    for _ in range(5):
-        candidate = generate_session_id()
-        if not load_session(candidate):
-            session_id = candidate
-            break
-    if not session_id:
-        return jsonify({"error": "Unable to allocate session. Please retry."}), 503
+    try:
+        session_id = None
+        for _ in range(5):
+            candidate = generate_session_id()
+            if not load_session(candidate):
+                session_id = candidate
+                break
+        if not session_id:
+            return jsonify({"error": "Unable to allocate session. Please retry."}), 503
 
-    session = GameSession(session_id, difficulty, max_rounds, outside_enabled, seed=seed)
-    save_session(session)
+        session = GameSession(session_id, difficulty, max_rounds, outside_enabled, seed=seed)
+        save_session(session)
+    except RuntimeError as err:
+        app.logger.error(str(err))
+        return jsonify({"error": str(err)}), 503
+    except Exception as err:
+        app.logger.exception("Failed to create session")
+        return jsonify({"error": "Session backend unavailable. Please try again."}), 503
 
     return jsonify({
         "session_id": session.session_id,
