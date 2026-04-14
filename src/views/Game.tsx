@@ -176,7 +176,6 @@ export default function Game() {
                         })}
                         seed={seed}
                         autoSubmitSignal={autoSubmitSignal}
-                        fallbackCoordinates={{ x: 99999, y: 99999 }}
                     />
             </div>
         </>
