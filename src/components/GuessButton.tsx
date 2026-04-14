@@ -13,7 +13,6 @@ type GuessButtonProps = {
     onGameComplete: (finalScore: number) => void;
     seed: string;
     autoSubmitSignal?: number;
-    fallbackCoordinates?: Point | null;
 };
 
 export default function GuessButton({
@@ -27,7 +26,6 @@ export default function GuessButton({
     onGameComplete,
     seed,
     autoSubmitSignal = 0,
-    fallbackCoordinates = null,
 }: GuessButtonProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const lastAutoSubmitSignal = useRef(0);
@@ -99,9 +97,9 @@ export default function GuessButton({
         }
 
         lastAutoSubmitSignal.current = autoSubmitSignal;
-        const timeoutCoordinates = fallbackCoordinates ?? { x: 99999, y: 99999 };
+        const timeoutCoordinates = coordinates ?? { x: 99999, y: 99999 };
         void sendToServer(timeoutCoordinates);
-    }, [autoSubmitSignal, fallbackCoordinates, sendToServer]);
+    }, [autoSubmitSignal, coordinates, sendToServer]);
 
     return (
         <button className="start-game-button" type="button" onClick={() => void sendToServer()} disabled={!canManuallySubmit || isSubmitting}>
