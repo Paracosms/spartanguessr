@@ -165,7 +165,7 @@ def select_round_location(image_difficulty, outside_enabled, rng):
 # next random image for the session
 def build_round_image(session):
     round_difficulty = get_round_difficulty(session.difficulty, session.max_rounds, session.current_round)
-    rng = random.Random(f"{session.seed}:{session.session_id}:{session.current_round}")
+    rng = random.Random(session.seed)
 
     location = select_round_location(round_difficulty, session.outside_enabled, rng)
     if not location:
