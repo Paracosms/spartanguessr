@@ -277,10 +277,10 @@ def random_image():
     
     rng = random.Random(seed)
     
-    if outside_enabled:
+    if not outside_enabled:
         location = rng.choice(["inside", "outside"])
     else:
-        location = "inside"
+        location = "outside"
         
     images = image_map[difficulty][location]
     if not images:
