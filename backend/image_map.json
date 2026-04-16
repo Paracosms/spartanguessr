@@ -37,6 +37,11 @@
     },
     "hard": {
         "inside": {
+            "1.jpg": "https://ngocng2910.github.io/images/hard/inside/(1120,885).jpg",
+            "2.jpg": "https://ngocng2910.github.io/images/hard/inside/(991,1102).jpg",
+            "3.jpg": "https://ngocng2910.github.io/images/hard/inside/(773,457).JPG",
+            "4.jpg": "https://ngocng2910.github.io/images/hard/inside/(432,1006).JPG",
+            "5.jpg": "https://ngocng2910.github.io/images/hard/inside/(362,999).JPG"
             
         },
         "outside": {
