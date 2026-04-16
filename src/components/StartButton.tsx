@@ -87,7 +87,7 @@ export default function StartButton() {
                 body: JSON.stringify({
                     difficulty: levelToApiDifficulty(formData.difficulty),
                     max_rounds: formData.round_count,
-                    outside_enabled: formData.outside_only,
+                    outside_only: formData.outside_only,
                     seed: normalizedSeed,
                 }),
             });

@@ -8,12 +8,12 @@ from datetime import UTC, datetime
 
 class GameSession:
     # session properties
-    def __init__(self, session_id, difficulty, max_rounds, outside_enabled=False, seed=""):
+    def __init__(self, session_id, difficulty, max_rounds, outside_only=False, seed=""):
         self.session_id = session_id
         self.difficulty = difficulty
         self.max_rounds = max_rounds
         self.current_round = 1
-        self.outside_enabled = outside_enabled
+        self.outside_only = outside_only
         self.seed = seed
         self.current_image_url = None
         self.total_score = 0
@@ -26,7 +26,7 @@ class GameSession:
             "difficulty": self.difficulty,
             "max_rounds": str(self.max_rounds),
             "current_round": str(self.current_round),
-            "outside_enabled": "true" if self.outside_enabled else "false",
+            "outside_only": "true" if self.outside_only else "false",
             "seed": self.seed,
             "current_image_url": self.current_image_url or "",
             "total_score": str(self.total_score),
@@ -42,7 +42,7 @@ class GameSession:
             str(data.get("session_id", "")),
             data.get("difficulty", "medium"),
             int(data.get("max_rounds", 5)),
-            data.get("outside_enabled", "false") == "true",
+            data.get("outside_only", "false") == "true",
             data.get("seed", ""),
         )
         session.current_round = int(data.get("current_round", 1))

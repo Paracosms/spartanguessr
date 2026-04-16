@@ -61,7 +61,7 @@ export default function Game() {
                 params.set("session_id", String(sessionId));
             } else {
                 params.set("difficulty", difficulty);
-                params.set("outside_enabled", outsideOnly ? "true" : "false");
+                params.set("outside_only", outsideOnly ? "true" : "false");
             }
 
             if (seed) {
