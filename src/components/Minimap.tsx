@@ -250,7 +250,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
             position: "relative",
             overflow: "hidden",
             userSelect: "none",
-            cursor: dragging ? "grabbing" : "crosshair",
+            cursor: "crosshair",
         }}
     >
 
