@@ -12,6 +12,7 @@ type GameFormData = {
     timer_length: string;
     seed: string;
     outside_only: boolean;
+    leaderboard_mode: boolean;
 };
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
@@ -21,6 +22,18 @@ const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Medium: 2,
     Hard: 3,
 };
+
+const LEADERBOARD_PRESET = {
+    difficulty: 3 as const,
+    unlabled_map: false,
+    round_count: 5,
+    timer_length: "30",
+    outside_only: false,
+};
+
+function generateRandomSeed() {
+    return Array.from({ length: 50 }, () => Math.floor(Math.random() * 10)).join("");
+}
 
 function levelToDifficulty(level: 1 | 2 | 3): DifficultyLabel {
     if (level === 2) return "Medium";
@@ -44,40 +57,67 @@ export default function StartButton() {
         seed: "",
         outside_only: false,
         unlabled_map: false,
+        leaderboard_mode: false,
     });
     const navigate = useNavigate();
 
     function handleDifficultyChange(nextDifficulty: string) {
         const normalized = (nextDifficulty as DifficultyLabel) || "Easy";
         const mappedDifficulty = DIFFICULTY_TO_LEVEL[normalized] ?? 1;
-        setFormData((prev) => ({ ...prev, difficulty: mappedDifficulty }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, difficulty: mappedDifficulty }));
     }
 
     function handleUnlabeledMapChange(value: boolean) {
-        setFormData((prev) => ({ ...prev, unlabled_map: value }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, unlabled_map: value }));
     }
 
     function handleTimerLengthChange(value: string) {
-        setFormData((prev) => ({ ...prev, timer_length: value }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, timer_length: value }));
     }
 
     function handleRoundCountChange(value: number) {
-        setFormData((prev) => ({ ...prev, round_count: value }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, round_count: value }));
     }
 
     function handleSeedChange(value: string) {
-        setFormData((prev) => ({ ...prev, seed: value }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, seed: value }));
     }
 
     function handleOutsideOnlyChange(value: boolean) {
-        setFormData((prev) => ({ ...prev, outside_only: value }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, outside_only: value }));
+    }
+
+    function handleLeaderboardModeChange(value: boolean) {
+        setFormData((prev) => {
+            if (!value) {
+                return { ...prev, leaderboard_mode: false };
+            }
+
+            return {
+                ...prev,
+                ...LEADERBOARD_PRESET,
+                seed: "",
+                leaderboard_mode: true,
+            };
+        });
     }
 
     async function sendToServer() {
         await preloadGameAssets();
 
+        const effectiveSettings: GameFormData = formData.leaderboard_mode
+            ? {
+                ...formData,
+                ...LEADERBOARD_PRESET,
+                seed: "",
+                leaderboard_mode: true,
+            }
+            : formData;
+
         const normalizedSeed =
-            formData.seed.trim() || Array.from({ length: 50 }, () => Math.floor(Math.random() * 10)).join("");
+            effectiveSettings.leaderboard_mode
+                ? generateRandomSeed()
+                : effectiveSettings.seed.trim() || generateRandomSeed();
         console.log(normalizedSeed)
 
         try {
@@ -85,10 +125,11 @@ export default function StartButton() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    difficulty: levelToApiDifficulty(formData.difficulty),
-                    max_rounds: formData.round_count,
-                    outside_only: formData.outside_only,
+                    difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
+                    max_rounds: effectiveSettings.round_count,
+                    outside_only: effectiveSettings.outside_only,
                     seed: normalizedSeed,
+                    leaderboard_mode: effectiveSettings.leaderboard_mode,
                 }),
             });
 
@@ -113,11 +154,12 @@ export default function StartButton() {
             navigate("/game", {
                 state: {
                     sessionId: result.session_id,
-                    roundCount: formData.round_count,
-                    difficulty: levelToApiDifficulty(formData.difficulty),
-                    outsideOnly: formData.outside_only,
-                    timerLength: formData.timer_length,
+                    roundCount: effectiveSettings.round_count,
+                    difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
+                    outsideOnly: effectiveSettings.outside_only,
+                    timerLength: effectiveSettings.timer_length,
                     seed: normalizedSeed,
+                    leaderboardMode: effectiveSettings.leaderboard_mode,
                 },
             });
 
@@ -145,6 +187,8 @@ export default function StartButton() {
                 onSeedChange={handleSeedChange}
                 outsideOnly={formData.outside_only}
                 onOutsideOnlyChange={handleOutsideOnlyChange}
+                leaderboardMode={formData.leaderboard_mode}
+                onLeaderboardModeChange={handleLeaderboardModeChange}
             />
 
             <button className="start-game-button" type="button" onClick={sendToServer}>
@@ -159,6 +203,7 @@ round_count: ${formData.round_count}
 timer_length: ${formData.timer_length}
 seed: ${formData.seed}
 outside_only: ${formData.outside_only}
+leaderboard_mode: ${formData.leaderboard_mode}
 }`}
             </pre>
         </div>

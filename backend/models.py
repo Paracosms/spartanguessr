@@ -8,13 +8,14 @@ from datetime import UTC, datetime
 
 class GameSession:
     # session properties
-    def __init__(self, session_id, difficulty, max_rounds, outside_only=False, seed=""):
+    def __init__(self, session_id, difficulty, max_rounds, outside_only=False, seed="", leaderboard_mode=False):
         self.session_id = session_id
         self.difficulty = difficulty
         self.max_rounds = max_rounds
         self.current_round = 1
         self.outside_only = outside_only
         self.seed = seed
+        self.leaderboard_mode = leaderboard_mode
         self.current_image_url = None
         self.total_score = 0
         self.created_at = datetime.now(UTC).isoformat()
@@ -28,6 +29,7 @@ class GameSession:
             "current_round": str(self.current_round),
             "outside_only": "true" if self.outside_only else "false",
             "seed": self.seed,
+            "leaderboard_mode": "true" if self.leaderboard_mode else "false",
             "current_image_url": self.current_image_url or "",
             "total_score": str(self.total_score),
             "created_at": self.created_at,
@@ -44,6 +46,7 @@ class GameSession:
             int(data.get("max_rounds", 5)),
             data.get("outside_only", "false") == "true",
             data.get("seed", ""),
+            data.get("leaderboard_mode", "false") == "true",
         )
         session.current_round = int(data.get("current_round", 1))
         session.current_image_url = data.get("current_image_url") or None

@@ -13,6 +13,7 @@ type GameRouteState = {
     outsideOnly?: boolean;
     timerLength?: string;
     seed?: string;
+    leaderboardMode?: boolean;
 } | null;
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
@@ -38,6 +39,7 @@ export default function Game() {
     const outsideOnly = gameState?.outsideOnly ?? false;
     const timerLength = gameState?.timerLength ?? "none";
     const seed = (gameState?.seed ?? "").trim();
+    const leaderboardMode = gameState?.leaderboardMode ?? false;
     const timerSeconds = timerLength === "none" ? null : Number.parseInt(timerLength, 10);
     const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
 
@@ -172,6 +174,7 @@ export default function Game() {
                             state: {
                                 totalScore: finalScore,
                                 sessionId,
+                                leaderboardMode,
                             },
                         })}
                         seed={seed}

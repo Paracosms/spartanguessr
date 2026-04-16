@@ -351,10 +351,16 @@ def create_session():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
+    leaderboard_mode = parse_bool(data.get("leaderboard_mode", False), default=False)
     difficulty = data.get("difficulty", "medium")
     max_rounds = data.get("max_rounds", data.get("round_count", 5))
     outside_only = parse_bool(data.get("outside_only", False), default=False)
     seed = str(data.get("seed", "")).strip()
+
+    if leaderboard_mode:
+        difficulty = "hard"
+        max_rounds = 5
+        outside_only = False
 
     if difficulty not in ("easy", "medium", "hard"):
         return jsonify({"error": "Invalid difficulty."}), 400
@@ -371,7 +377,14 @@ def create_session():
         if not session_id:
             return jsonify({"error": "Unable to allocate session. Please retry."}), 503
 
-        session = GameSession(session_id, difficulty, max_rounds, outside_only, seed=seed)
+        session = GameSession(
+            session_id,
+            difficulty,
+            max_rounds,
+            outside_only,
+            seed=seed,
+            leaderboard_mode=leaderboard_mode,
+        )
         save_session(session)
     except RuntimeError as err:
         app.logger.error(str(err))
@@ -387,6 +400,7 @@ def create_session():
         "current_round": session.current_round,
         "outside_only": session.outside_only,
         "seed": session.seed,
+        "leaderboard_mode": session.leaderboard_mode,
         "total_score": session.total_score,
         "created_at": session.created_at,
     }), 201
@@ -406,6 +420,7 @@ def get_session_state(session_id):
         "max_rounds": session.max_rounds,
         "current_round": session.current_round,
         "outside_only": session.outside_only,
+        "leaderboard_mode": session.leaderboard_mode,
         "current_image_url": session.current_image_url,
         "total_score": session.total_score,
         "created_at": session.created_at,
