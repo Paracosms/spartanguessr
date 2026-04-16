@@ -78,6 +78,7 @@ export default function StartButton() {
 
         const normalizedSeed =
             formData.seed.trim() || Array.from({ length: 50 }, () => Math.floor(Math.random() * 10)).join("");
+        console.log(normalizedSeed)
 
         try {
             const res = await fetch(`${API_BASE_URL}/session`, {
