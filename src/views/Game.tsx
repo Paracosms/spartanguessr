@@ -138,7 +138,7 @@ export default function Game() {
         <>
 
             {roundImageUrl && (
-                <img src={roundImageUrl}
+                <img src={`https://spartanguessr.onrender.com${roundImageUrl}`}
                      alt="Current round location"
                      draggable={false}
                      style={{
