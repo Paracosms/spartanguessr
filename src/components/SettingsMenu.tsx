@@ -14,6 +14,8 @@ type SettingsMenuProps = {
     onSeedChange: (value: string) => void;
     outsideOnly: boolean;
     onOutsideOnlyChange: (value: boolean) => void;
+    leaderboardMode: boolean;
+    onLeaderboardModeChange: (value: boolean) => void;
 };
 
 const TIMER_DISPLAY: Record<string, string> = {
@@ -36,12 +38,14 @@ export default function SettingsMenu({
     onSeedChange,
     outsideOnly,
     onOutsideOnlyChange,
+    leaderboardMode,
+    onLeaderboardModeChange,
 }: SettingsMenuProps) {
     return (
         <>
             {/* Dropdowns & inputs */}
             <Dropdown onSelect={(eventKey) => eventKey && onDifficultyChange(eventKey)}>
-                <Dropdown.Toggle className="difficulty-button" id="difficulty-dropdown">
+                <Dropdown.Toggle className="difficulty-button" id="difficulty-dropdown" disabled={leaderboardMode}>
                     Difficulty: {difficulty}
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
@@ -52,7 +56,7 @@ export default function SettingsMenu({
             </Dropdown>
 
             <Dropdown onSelect={(eventKey) => eventKey && onTimerLengthChange(eventKey)}>
-                <Dropdown.Toggle className="difficulty-button" id="timer-dropdown">
+                <Dropdown.Toggle className="difficulty-button" id="timer-dropdown" disabled={leaderboardMode}>
                     Timer: {TIMER_DISPLAY[timerLength] ?? timerLength}
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
@@ -71,7 +75,7 @@ export default function SettingsMenu({
                     }
                 }}
             >
-                <Dropdown.Toggle className="difficulty-button" id="rounds-dropdown">
+                <Dropdown.Toggle className="difficulty-button" id="rounds-dropdown" disabled={leaderboardMode}>
                     Rounds: {roundCount}
                 </Dropdown.Toggle>
                 <Dropdown.Menu>
@@ -87,6 +91,7 @@ export default function SettingsMenu({
                 placeholder="Seed (optional)"
                 value={seed}
                 onChange={(e) => onSeedChange(e.target.value)}
+                disabled={leaderboardMode}
             />
 
             {/* Toggles */}
@@ -97,6 +102,7 @@ export default function SettingsMenu({
                     id="unlabeled-map-switch"
                     checked={unlabeledMap}
                     onChange={(e) => onUnlabeledMapChange(e.target.checked)}
+                    disabled={leaderboardMode}
                 />
             </div>
 
@@ -107,6 +113,17 @@ export default function SettingsMenu({
                     id="outside-only-switch"
                     checked={outsideOnly}
                     onChange={(e) => onOutsideOnlyChange(e.target.checked)}
+                    disabled={leaderboardMode}
+                />
+            </div>
+
+            <div className="setting-toggle">
+                <span>Leaderboard Mode</span>
+                <Form.Check
+                    type="switch"
+                    id="leaderboard-mode-switch"
+                    checked={leaderboardMode}
+                    onChange={(e) => onLeaderboardModeChange(e.target.checked)}
                 />
             </div>
         </>

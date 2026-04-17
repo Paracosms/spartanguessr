@@ -13,6 +13,7 @@ type GameRouteState = {
     outsideOnly?: boolean;
     timerLength?: string;
     seed?: string;
+    leaderboardMode?: boolean;
 } | null;
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
@@ -38,6 +39,7 @@ export default function Game() {
     const outsideOnly = gameState?.outsideOnly ?? false;
     const timerLength = gameState?.timerLength ?? "none";
     const seed = (gameState?.seed ?? "").trim();
+    const leaderboardMode = gameState?.leaderboardMode ?? false;
     const timerSeconds = timerLength === "none" ? null : Number.parseInt(timerLength, 10);
     const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
 
@@ -61,7 +63,7 @@ export default function Game() {
                 params.set("session_id", String(sessionId));
             } else {
                 params.set("difficulty", difficulty);
-                params.set("outside_enabled", outsideOnly ? "true" : "false");
+                params.set("outside_only", outsideOnly ? "true" : "false");
             }
 
             if (seed) {
@@ -138,7 +140,7 @@ export default function Game() {
         <>
 
             {roundImageUrl && (
-                <img src={roundImageUrl}
+                <img src={`https://spartanguessr.onrender.com${roundImageUrl}`}
                      alt="Current round location"
                      draggable={false}
                      style={{
@@ -172,6 +174,7 @@ export default function Game() {
                             state: {
                                 totalScore: finalScore,
                                 sessionId,
+                                leaderboardMode,
                             },
                         })}
                         seed={seed}
