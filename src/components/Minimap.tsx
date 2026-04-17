@@ -105,11 +105,9 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
         const mouseY = e.clientY - rect.top;
 
         setView((prev) => {
-            // Zoom in/out by ZOOM_SPEED for every scroll step
-            const direction = e.deltaY < 0 ? 1 : -1;
-            const currentStep = Math.round((prev.scale - minZoom) / ZOOM_SPEED);
-            const nextStep = currentStep + direction;
-            const nextScale = clamp(round(minZoom + nextStep * ZOOM_SPEED, 4), minZoom, MAX_ZOOM);
+            // Zoom in/out by zoomFactor, should be better for trackpads
+            const zoomFactor = 1 - e.deltaY * 0.015;
+            const nextScale = clamp(round(prev.scale * zoomFactor, 4), minZoom, MAX_ZOOM);
 
             // Avoid useless updates
             if (nextScale === prev.scale) return prev;
@@ -227,6 +225,19 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
         return () => window.clearInterval(syncInterval);
     }, []);
 
+    // Prevent trackpad pinch-to-zoom on the minimap
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const preventZoom = (e: WheelEvent) => {
+            if (e.ctrlKey) e.preventDefault();
+        };
+
+        container.addEventListener("wheel", preventZoom, { passive: false });
+        return () => container.removeEventListener("wheel", preventZoom);
+    }, []);
+
     return <>
         {debugEnabled && (
             <>
@@ -251,6 +262,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
             overflow: "hidden",
             userSelect: "none",
             cursor: "crosshair",
+            touchAction: "none",
         }}
     >
 
