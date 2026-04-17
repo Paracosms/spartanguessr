@@ -7,6 +7,11 @@ type ViewState = { scale: number; offset: Point };
 type MinimapProps = {
     pinPosition: Point | null;
     onPinChange: (point: Point) => void;
+    allowPinPlacement?: boolean;
+    mapHeightVh?: number;
+    initialScale?: number;
+    actualPosition?: Point | null;
+    showActualDot?: boolean;
 };
 declare global {
     interface Window {
@@ -32,13 +37,27 @@ const MINIMAP_WIDTH = 1428;
 const MINIMAP_HEIGHT = 1503;
 
 
-export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
+export default function Minimap({
+    pinPosition,
+    onPinChange,
+    allowPinPlacement = true,
+    mapHeightVh = MAP_HEIGHT,
+    initialScale = INITIAL_SCALE,
+    actualPosition = null,
+    showActualDot = false,
+}: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
     const [view, setView] = useState<ViewState>({
         scale: INITIAL_SCALE,
         offset: INITIAL_MAP_POS,
     });
+    useEffect(() => {
+        setView((prev) => ({
+            ...prev,
+            scale: initialScale,
+        }));
+    }, [initialScale]);
     const [minZoom, setMinZoom] = useState(BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
     const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
@@ -50,6 +69,10 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
 
     // Place pin
     function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+        if (!allowPinPlacement) {
+            return;
+        }
+
         e.preventDefault();
 
         // Ignore the click that naturally fires after panning
@@ -185,7 +208,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
             if (!container) return;
 
             const rect = container.getBoundingClientRect();
-            const nextMinZoom = getMinZoom(rect.height);
+            const nextMinZoom = getMinZoom(rect.height, mapHeightVh);
             setMinZoom(nextMinZoom);
 
             setView((prev) => ({
@@ -197,7 +220,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, []);
+    }, [mapHeightVh]);
 
     // Allows `debug = true/false` in the browser console to toggle debug UI
     useEffect(() => {
@@ -242,10 +265,10 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
         ref={containerRef}
         onMouseDown={handleMouseDown}
         onWheel={handleWheel}
-        onClick={handleClick}
+        onClick={allowPinPlacement ? handleClick : undefined}
         className="rounded shadow border border-5 border-warning"
         style={{
-            height: `${MAP_HEIGHT}vh`,
+            height: `${mapHeightVh}vh`,
             aspectRatio: `${ASPECT_RATIO}`,
             position: "relative",
             overflow: "hidden",
@@ -283,6 +306,23 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
                 }}
             />
         )}
+        {showActualDot && actualPosition && (
+            <div
+                style={{
+                    position: "absolute",
+                    left: `${offset.x + actualPosition.x * scale}px`,
+                    top: `${offset.y + actualPosition.y * scale}px`,
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    background: "#ff3b30",
+                    border: "2px solid white",
+                    transform: "translate(-50%, -50%)",
+                    pointerEvents: "none",
+                    boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
+                }}
+            />
+        )}
     </div>
 
     </>
@@ -295,8 +335,8 @@ function round(value: number, decimal_places: number): number {
 }
 
 // fix for 1080p+ monitors
-function getMinZoom(containerHeight: number): number {
-    const referenceContainerHeight = (MIN_ZOOM_REFERENCE_HEIGHT * MAP_HEIGHT) / 100;
+function getMinZoom(containerHeight: number, mapHeightVh: number): number {
+    const referenceContainerHeight = (MIN_ZOOM_REFERENCE_HEIGHT * mapHeightVh) / 100;
     const scaledMinZoom = BASE_MIN_ZOOM * (containerHeight / referenceContainerHeight);
     const clampedMinZoom = clamp(scaledMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM);
 

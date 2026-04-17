@@ -2,6 +2,7 @@ import './App.css';
 import { useEffect } from "react";
 import StartButton from "./components/StartButton.tsx";
 import Game from "./views/Game.tsx"
+import Score from "./views/Score.tsx";
 import Results from "./views/Results.tsx";
 import {Routes, Route} from "react-router-dom";
 import { preloadGameAssets } from "./utils/preloadGameAssets.tsx";
@@ -30,6 +31,7 @@ function App() {
       <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/game" element={<Game />} />
+          <Route path="/score" element={<Score />} />
           <Route path="/results" element={<Results />} />
       </Routes>
   );

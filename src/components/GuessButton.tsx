@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 type Point = { x: number; y: number };
+type ApiDifficulty = "easy" | "medium" | "hard";
+
+type GameRouteState = {
+    sessionId?: string;
+    roundCount?: number;
+    difficulty?: ApiDifficulty;
+    outsideOnly?: boolean;
+    timerLength?: string;
+    seed?: string;
+    leaderboardMode?: boolean;
+};
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -8,9 +20,8 @@ type GuessButtonProps = {
     round_number: number | null;
     max_rounds: number;
     coordinates: Point | null;
-    onRoundAdvance: () => void;
-    onRequestNextImage: () => Promise<void>;
-    onGameComplete: (finalScore: number) => void;
+    gameState: GameRouteState;
+    onGameComplete?: (finalScore: number) => void;
     seed: string;
     autoSubmitSignal?: number;
 };
@@ -21,14 +32,13 @@ export default function GuessButton({
     round_number,
     max_rounds,
     coordinates,
-    onRoundAdvance,
-    onRequestNextImage,
-    onGameComplete,
+    gameState,
     seed,
     autoSubmitSignal = 0,
 }: GuessButtonProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const lastAutoSubmitSignal = useRef(0);
+    const navigate = useNavigate();
 
     const hasSessionData =
         session_id != null &&
@@ -72,24 +82,42 @@ export default function GuessButton({
                 console.error("FAIL", `Server error: ${res.status}`, errorResult);
                 return;
             }
-            const result = await res.json();
-            alert(`Round ${round_number} score: ${result.score}`);
+            const result = await res.json() as {
+                score: number;
+                total_score: number;
+                actual_latitude: number;
+                actual_longitude: number;
+                game_complete?: boolean;
+            };
 
             console.log("SUCCESS", result);
 
-            if (round_number >= max_rounds) {
-                onGameComplete(result.total_score);
-                return;
-            }
+            const gameComplete = result.game_complete === true || round_number >= max_rounds;
 
-            await onRequestNextImage();
-            onRoundAdvance();
+            navigate("/score", {
+                state: {
+                    guess_pos: coordinatesToSubmit,
+                    actual_pos: { x: result.actual_latitude, y: result.actual_longitude },
+                    image_url,
+                    round_score: result.score,
+                    round_number,
+                    gameState,
+                    is_game_complete: gameComplete,
+                    resultsState: gameComplete
+                        ? {
+                            totalScore: result.total_score,
+                            sessionId: gameState.sessionId,
+                            leaderboardMode: gameState.leaderboardMode,
+                        }
+                        : undefined,
+                },
+            });
         } catch (err) {
             console.error("FAIL", err);
         } finally {
             setIsSubmitting(false);
         }
-    }, [coordinates, hasSessionData, image_url, isSubmitting, onGameComplete, onRequestNextImage, onRoundAdvance, round_number, seed, session_id, max_rounds]);
+    }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, seed, session_id]);
 
     useEffect(() => {
         if (autoSubmitSignal <= lastAutoSubmitSignal.current) {
