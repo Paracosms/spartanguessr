@@ -276,7 +276,7 @@ export default function Minimap({ pinPosition, onPinChange }: MinimapProps) {
                     position: "absolute",
                     left: `${offset.x + pinPosition.x * scale}px`,
                     top: `${offset.y + pinPosition.y * scale}px`,
-                    transform: "translate(-50%, -100%)",
+                    transform: "translate(-50%, -100%) translate(-5px, -5px)",
                     width: `${PIN_SIZE_PX}px`,
                     pointerEvents: "none",
                     userSelect: "none",
