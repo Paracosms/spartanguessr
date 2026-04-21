@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 type Point = { x: number; y: number };
 type ApiDifficulty = "easy" | "medium" | "hard";
@@ -25,7 +25,6 @@ export default function Game() {
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
     const location = useLocation();
-    const navigate = useNavigate();
 
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
@@ -42,6 +41,15 @@ export default function Game() {
     const leaderboardMode = gameState?.leaderboardMode ?? false;
     const timerSeconds = timerLength === "none" ? null : Number.parseInt(timerLength, 10);
     const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
+    const gameNavigationState: NonNullable<GameRouteState> = {
+        sessionId: sessionId ?? undefined,
+        roundCount: maxRounds,
+        difficulty,
+        outsideOnly,
+        timerLength,
+        seed,
+        leaderboardMode,
+    };
 
     function formatTimer(totalSeconds: number | null) {
         if (totalSeconds == null) {
@@ -82,6 +90,7 @@ export default function Game() {
                 location: string;
                 image: string;
                 image_url: string;
+                round_number?: number;
             };
 
             if (randomImage.completed) {
@@ -89,6 +98,9 @@ export default function Game() {
             }
 
             setRoundImageUrl(randomImage.image_url);
+            if (typeof randomImage.round_number === "number") {
+                setRoundNumber(randomImage.round_number);
+            }
             setTimeRemaining(roundTimerSeconds);
         } catch (err) {
             console.error("FAIL", err);
@@ -131,17 +143,11 @@ export default function Game() {
         };
     }, [roundImageUrl, roundNumber, roundTimerSeconds]);
 
-    const handleRoundAdvance = useCallback(() => {
-        setPinPosition(null);
-        setRoundNumber((round) => round + 1);
-    }, []);
-
     return (
         <>
 
             {roundImageUrl && (
                 <img src={`https://spartanguessr.onrender.com${roundImageUrl}`}
-                     alt="Current round location"
                      draggable={false}
                      style={{
                         width: "100vw",
@@ -168,15 +174,8 @@ export default function Game() {
                         round_number={roundNumber}
                         max_rounds={maxRounds}
                         coordinates={pinPosition}
-                        onRoundAdvance={handleRoundAdvance}
-                        onRequestNextImage={loadRandomImage}
-                        onGameComplete={(finalScore) => navigate("/results", {
-                            state: {
-                                totalScore: finalScore,
-                                sessionId,
-                                leaderboardMode,
-                            },
-                        })}
+                        gameState={gameNavigationState}
+                        onGameComplete={() => {}}
                         seed={seed}
                         autoSubmitSignal={autoSubmitSignal}
                     />

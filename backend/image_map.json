@@ -3,7 +3,14 @@
         "inside": {
             "1": "https://ngocng2910.github.io/images/easy/inside/(647,425).JPG",
             "2": "https://ngocng2910.github.io/images/easy/inside/(981,516).JPG",
-            "3": "https://ngocng2910.github.io/images/easy/inside/(986,491).JPG"
+            "3": "https://ngocng2910.github.io/images/easy/inside/(986,491).JPG",
+            "4": "https://ngocng2910.github.io/images/easy/inside/(974,655).jpg",
+            "5": "https://ngocng2910.github.io/images/easy/inside/(920,454).jpg",
+            "6": "https://ngocng2910.github.io/images/easy/inside/(903,649).jpg",
+            "7": "https://ngocng2910.github.io/images/easy/inside/(762,588).JPG",
+            "8": "https://ngocng2910.github.io/images/easy/inside/(404,484).JPG",
+            "9": "https://ngocng2910.github.io/images/easy/inside/(1114,729).JPG",
+            "10": "https://ngocng2910.github.io/images/easy/inside/(1100,991).jpg"
         },
         "outside": {
             "1": "https://ngocng2910.github.io/images/easy/outside/(1206,1206).JPG",
@@ -12,7 +19,18 @@
             "4": "https://ngocng2910.github.io/images/easy/outside/(594,727).jpg",
             "5": "https://ngocng2910.github.io/images/easy/outside/(595,195).JPG",
             "6": "https://ngocng2910.github.io/images/easy/outside/(595,270).JPG",
-            "7": "https://ngocng2910.github.io/images/easy/outside/(915,903).jpg"
+            "7": "https://ngocng2910.github.io/images/easy/outside/(915,903).jpg",
+            "8": "https://ngocng2910.github.io/images/easy/outside/(1220,1097).JPG",
+            "9": "https://ngocng2910.github.io/images/easy/outside/(1156,1208).JPG",
+            "10": "https://ngocng2910.github.io/images/easy/outside/(1126,623).jpg",
+            "11": "https://ngocng2910.github.io/images/easy/outside/(1069,937).jpg",
+            "12": "https://ngocng2910.github.io/images/easy/outside/(1055,978).jpg",
+            "13": "https://ngocng2910.github.io/images/easy/outside/(997,600).jpg",
+            "14": "https://ngocng2910.github.io/images/easy/outside/(725,635).JPG",
+            "15": "https://ngocng2910.github.io/images/easy/outside/(682,481).JPG",
+            "16": "https://ngocng2910.github.io/images/easy/outside/(650,570).JPG",
+            "17": "https://ngocng2910.github.io/images/easy/outside/(610,724).JPG"
+
         }
     },
     "medium": {
@@ -24,7 +42,23 @@
             "5": "https://ngocng2910.github.io/images/medium/inside/(806,585).jpg",
             "6": "https://ngocng2910.github.io/images/medium/inside/(896,598).JPG",
             "7": "https://ngocng2910.github.io/images/medium/inside/(961,519).JPG",
-            "8": "https://ngocng2910.github.io/images/medium/inside/(975,470).JPG"
+            "8": "https://ngocng2910.github.io/images/medium/inside/(975,470).JPG",
+            "9": "https://ngocng2910.github.io/images/medium/inside/(1030,739).JPG",
+            "10": "https://ngocng2910.github.io/images/medium/inside/(1057,787).JPG",
+            "11": "https://ngocng2910.github.io/images/medium/inside/(1069,792).JPG",
+            "12": "https://ngocng2910.github.io/images/medium/inside/(1114,736).JPG",
+            "13": "https://ngocng2910.github.io/images/medium/inside/(1216,776).JPG",
+            "14": "https://ngocng2910.github.io/images/medium/inside/(1290,732).JPG",
+            "15": "https://ngocng2910.github.io/images/medium/inside/(615,1020).jpg",
+            "16": "https://ngocng2910.github.io/images/medium/inside/(617,1042).JPG",
+            "17": "https://ngocng2910.github.io/images/medium/inside/(673,413).JPG",
+            "18": "https://ngocng2910.github.io/images/medium/inside/(636,475).JPG",
+            "19": "https://ngocng2910.github.io/images/medium/inside/(760,575).jpg",
+            "20": "https://ngocng2910.github.io/images/medium/inside/(761,528).JPG",
+            "21": "https://ngocng2910.github.io/images/medium/inside/(770,647).JPG",
+            "22": "https://ngocng2910.github.io/images/medium/inside/(798,590).JPG",
+            "23": "https://ngocng2910.github.io/images/medium/inside/(874,565).jpg",
+            "24": "https://ngocng2910.github.io/images/medium/inside/(929,749).JPG"
         },
         "outside": {
             "1": "https://ngocng2910.github.io/images/medium/outside/(1035,812).JPG",
@@ -32,24 +66,54 @@
             "3": "https://ngocng2910.github.io/images/medium/outside/(1101,654).jpg",
             "4": "https://ngocng2910.github.io/images/medium/outside/(496,223).JPG",
             "5": "https://ngocng2910.github.io/images/medium/outside/(614,392).JPG",
-            "6": "https://ngocng2910.github.io/images/medium/outside/(646,691).jpg"
+            "6": "https://ngocng2910.github.io/images/medium/outside/(646,691).jpg",
+            "7": "https://ngocng2910.github.io/images/medium/outside/(1012,602).jpg",
+            "8": "https://ngocng2910.github.io/images/medium/outside/(1083,832).jpg",
+            "9": "https://ngocng2910.github.io/images/medium/outside/(1269,698).jpg",
+            "10": "https://ngocng2910.github.io/images/medium/outside/(1286,701).JPG",
+            "11": "https://ngocng2910.github.io/images/medium/outside/(260,150).jpg",
+            "12": "https://ngocng2910.github.io/images/medium/outside/(515,1092).jpg",
+            "13": "https://ngocng2910.github.io/images/medium/outside/(608,734).JPG",
+            "14": "https://ngocng2910.github.io/images/medium/outside/(631,601).JPG",
+            "15": "https://ngocng2910.github.io/images/medium/outside/(636,525).JPG",
+            "16": "https://ngocng2910.github.io/images/medium/outside/(646,692).JPG",
+            "17": "https://ngocng2910.github.io/images/medium/outside/(716,442).JPG",
+            "18": "https://ngocng2910.github.io/images/medium/outside/(718,491).JPG",
+            "19": "https://ngocng2910.github.io/images/medium/outside/(754,1037).jpg"
         }
     },
     "hard": {
         "inside": {
             "1": "https://ngocng2910.github.io/images/hard/inside/(1120,885).jpg",
-            "2": "https://ngocng2910.github.io/images/hard/inside/(991,1102).jpg",
+            "2": "https://ngocng2910.github.io/images/hard/inside/(1110,433).jpg",
             "3": "https://ngocng2910.github.io/images/hard/inside/(773,457).JPG",
             "4": "https://ngocng2910.github.io/images/hard/inside/(432,1006).JPG",
-            "5": "https://ngocng2910.github.io/images/hard/inside/(362,999).JPG"
-            
+            "5": "https://ngocng2910.github.io/images/hard/inside/(362,999).JPG",
+            "6": "https://ngocng2910.github.io/images/hard/inside/(1064,782).jpg",
+            "7": "https://ngocng2910.github.io/images/hard/inside/(1065,782).JPG",
+            "8": "https://ngocng2910.github.io/images/hard/inside/(1114,463).jpg",
+            "9": "https://ngocng2910.github.io/images/hard/inside/(1114,756).JPG",
+            "10": "https://ngocng2910.github.io/images/hard/inside/(1115,728).JPG",
+            "11": "https://ngocng2910.github.io/images/hard/inside/(1123,798).jpg",
+            "12": "https://ngocng2910.github.io/images/hard/inside/(1128,881).JPG",
+            "13": "https://ngocng2910.github.io/images/hard/inside/(1275,708).JPG",
+            "14": "https://ngocng2910.github.io/images/hard/inside/(636,475).JPG",
+            "15": "https://ngocng2910.github.io/images/hard/inside/(789,661).JPG",
+            "16": "https://ngocng2910.github.io/images/hard/inside/(792,713).JPG",
+            "17": "https://ngocng2910.github.io/images/hard/inside/(914,565).jpg"   
         },
         "outside": {
             "1": "https://ngocng2910.github.io/images/hard/outside/(478,894).jpg",
             "2": "https://ngocng2910.github.io/images/hard/outside/(620,835).jpg",
             "3": "https://ngocng2910.github.io/images/hard/outside/(639,196).jpg",
             "4": "https://ngocng2910.github.io/images/hard/outside/(706,590).JPG",
-            "5": "https://ngocng2910.github.io/images/hard/outside/(747,866).jpg"
+            "5": "https://ngocng2910.github.io/images/hard/outside/(747,866).jpg",
+            "6": "https://ngocng2910.github.io/images/hard/outside/(1022,406).jpg",
+            "7": "https://ngocng2910.github.io/images/hard/outside/(1082,586).jpg",
+            "8": "https://ngocng2910.github.io/images/hard/outside/(482,1180).jpg",
+            "9": "https://ngocng2910.github.io/images/hard/outside/(563,1126).jpg",
+            "10": "https://ngocng2910.github.io/images/hard/outside/(566,1138).jpg",
+            "11": "https://ngocng2910.github.io/images/hard/outside/(950,715).JPG"
         }
     }
 }
