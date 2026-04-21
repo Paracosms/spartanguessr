@@ -129,7 +129,9 @@ export default function Minimap({
 
         setView((prev) => {
             // Zoom in/out by zoomFactor, should be better for trackpads
-            const zoomFactor = 1 - e.deltaY * 0.015;
+            const isTrackpad = Math.abs(e.deltaY) < 50;
+            const speed = isTrackpad ? 0.015 : 0.003;
+            const zoomFactor = 1 - e.deltaY * speed;
             const nextScale = clamp(round(prev.scale * zoomFactor, 4), minZoom, MAX_ZOOM);
 
             // Avoid useless updates
