@@ -10,7 +10,7 @@ SpartanGuessr Score Algorithm
 import math
 
 def score_algorithm(guess_point, correct_point):
-    MAX_DISTANCE = 2400 #2073 # diagonal of smallest rectangle possible that contains every location on map, ie. rectangle that surrounds sjsu campus
+    MAX_DISTANCE = 2800 #2073 # diagonal of smallest rectangle possible that contains every location on map, ie. rectangle that surrounds sjsu campus
 
     distance = math.dist(guess_point, correct_point) # distance between guess and correct location
         # previous distance formula in case math function doesnt work, need individual coordinates:
