@@ -102,6 +102,19 @@ export default function StartButton() {
         });
     }
 
+    // leaving this here in case we ever need it again
+    /* SELECTION SUMMARY:
+        {`{
+            difficulty: ${formData.difficulty}
+            unlabeled_map: ${formData.unlabled_map}
+            round_count: ${formData.round_count}
+            timer_length: ${formData.timer_length}
+            seed: ${formData.seed}
+            outside_only: ${formData.outside_only}
+            leaderboard_mode: ${formData.leaderboard_mode}
+        }`}
+     */
+
     async function sendToServer() {
         await preloadGameAssets();
 
@@ -196,17 +209,6 @@ export default function StartButton() {
                 Start Game
             </button>
 
-            <pre className="selection-summary">
-{`{
-difficulty: ${formData.difficulty}
-unlabeled_map: ${formData.unlabled_map}
-round_count: ${formData.round_count}
-timer_length: ${formData.timer_length}
-seed: ${formData.seed}
-outside_only: ${formData.outside_only}
-leaderboard_mode: ${formData.leaderboard_mode}
-}`}
-            </pre>
         </div>
     );
 }

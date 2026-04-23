@@ -171,7 +171,7 @@ export default function Game() {
 
                     <Minimap
                         pinPosition={pinPosition}
-                        unlabled={unlabeledMap}
+                        unlabeled={unlabeledMap}
                         onPinChange={setPinPosition}
                     />
 

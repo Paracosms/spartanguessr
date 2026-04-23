@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 
 type Point = { x: number; y: number };
-const BASE_MIN_ZOOM = 0.4;
+const BASE_MIN_ZOOM = 0.685; // magic number achieved through trial and error
 
 type ApiDifficulty = "easy" | "medium" | "hard";
 
@@ -11,6 +11,7 @@ type GameRouteState = {
 	sessionId?: string;
 	roundCount?: number;
 	difficulty?: ApiDifficulty;
+    unlabled?: boolean;
 	outsideOnly?: boolean;
 	timerLength?: string;
 	seed?: string;
@@ -38,13 +39,14 @@ export default function Score() {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const routeState = location.state as ScoreRouteState;
-
 	const guessPos = routeState?.guess_pos;
 	const actualPos = routeState?.actual_pos;
 	const imageUrl = routeState?.image_url;
 	const gameState = routeState?.gameState;
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
+
+    const unlabeled = routeState?.gameState?.unlabled ?? false;
 
 	useEffect(() => {
 		if (!guessPos || !actualPos || !imageUrl || (!gameState && !isGameComplete)) {
@@ -118,7 +120,9 @@ export default function Score() {
 					onPinChange={() => {}}
 					allowPinPlacement={false}
 					mapHeightVh={80}
+                    unlabeled={unlabeled}
 					initialScale={BASE_MIN_ZOOM}
+					minZoomFloor={BASE_MIN_ZOOM}
 					actualPosition={actualPos}
 					showActualDot
 				/>

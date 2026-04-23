@@ -7,10 +7,11 @@ type ViewState = { scale: number; offset: Point };
 type MinimapProps = {
     pinPosition: Point | null;
     onPinChange: (point: Point) => void;
-    unlabled: boolean;
+    unlabeled: boolean;
     allowPinPlacement?: boolean;
     mapHeightVh?: number;
     initialScale?: number;
+    minZoomFloor?: number;
     actualPosition?: Point | null;
     showActualDot?: boolean;
 };
@@ -25,10 +26,11 @@ const INITIAL_MAP_POS = {x: -650, y: -750}
 const MAP_HEIGHT = 40; // -> 40vh
 const PIN_SIZE_PX = 30;
 const INITIAL_SCALE = 1; // prod = 1.0
-const ZOOM_SPEED = 0.1;
+const ZOOM_SPEED = 0.05;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
-const BASE_MIN_ZOOM = 0.25; // The scale that encompasses the entire map on a MIN_ZOOM_REFERENCE_HEIGHT px display
+const BASE_MIN_ZOOM = 0.25;  // this should scale based on MAP_HEIGHT
+// The scale that encompasses the entire map on a MIN_ZOOM_REFERENCE_HEIGHT px display
 const MIN_ZOOM_REFERENCE_HEIGHT = 1080;
 const MAX_DYNAMIC_MIN_ZOOM = 0.45;
 const MAX_ZOOM = 2;
@@ -41,10 +43,11 @@ const MINIMAP_HEIGHT = 1503;
 export default function Minimap({
     pinPosition,
     onPinChange,
-    unlabled,
+    unlabeled,
     allowPinPlacement = true,
     mapHeightVh = MAP_HEIGHT,
     initialScale = INITIAL_SCALE,
+    minZoomFloor,
     actualPosition = null,
     showActualDot = false,
 }: MinimapProps) {
@@ -60,7 +63,7 @@ export default function Minimap({
             scale: initialScale,
         }));
     }, [initialScale]);
-    const [minZoom, setMinZoom] = useState(BASE_MIN_ZOOM);
+    const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
     const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
     const { scale, offset } = view;
@@ -207,7 +210,9 @@ export default function Minimap({
             if (!container) return;
 
             const rect = container.getBoundingClientRect();
-            const nextMinZoom = getMinZoom(rect.height, mapHeightVh);
+            const dynamicMinZoom = getMinZoom(rect.height, mapHeightVh);
+            const nextMinZoom =
+                minZoomFloor != null ? Math.max(dynamicMinZoom, minZoomFloor) : dynamicMinZoom;
             setMinZoom(nextMinZoom);
 
             setView((prev) => ({
@@ -219,7 +224,7 @@ export default function Minimap({
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, [mapHeightVh]);
+    }, [mapHeightVh, minZoomFloor]);
 
     // Allows `debug = true/false` in the browser console to toggle debug UI
     useEffect(() => {
@@ -291,7 +296,7 @@ export default function Minimap({
     >
         <img
             className={"minimap-img"}
-            src={unlabled ? mapUnlabeled : mapLabeled}
+            src={unlabeled ? mapUnlabeled : mapLabeled}
             alt="Campus Minimap"
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
@@ -350,7 +355,7 @@ function round(value: number, decimal_places: number): number {
 // fix for 1080p+ monitors
 function getMinZoom(containerHeight: number, mapHeightVh: number): number {
     const referenceContainerHeight = (MIN_ZOOM_REFERENCE_HEIGHT * mapHeightVh) / 100;
-    const scaledMinZoom = BASE_MIN_ZOOM * (containerHeight / referenceContainerHeight);
+    const scaledMinZoom = BASE_MIN_ZOOM * (containerHeight / referenceContainerHeight); // should be 0.35 at 1080p, 1440p 4k
     const clampedMinZoom = clamp(scaledMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM);
 
     const baseSteps = Math.ceil(clampedMinZoom / ZOOM_SPEED);
