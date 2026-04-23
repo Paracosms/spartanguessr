@@ -148,12 +148,17 @@ export default function Game() {
     return (
         <>
 
-            {roundImageUrl && (
+            {roundImageUrl && (    
                 <img src={`https://spartanguessr.onrender.com${roundImageUrl}`}
-                     draggable={false}
-                     style={{
+                    draggable={false}
+                    style={{
                         width: "100vw",
                         height: "100vh",
+                        objectFit: "contain",
+                        background: "#000000", // "#1176B9",
+                        // adds outline around the browser window
+                        // border: "6px solid #FFC108",
+                        // boxSizing: "border-box",
                     }}
                 />
             )}
