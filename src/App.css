@@ -1,6 +1,6 @@
 :root {
 	color: #f7f4ea;
-	font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -23,6 +23,24 @@ body {
 	text-align: center;
 }
 
+.results-page {
+	background-size: auto;
+	position: relative;
+	min-height: 100vh;
+	overflow: hidden;
+}
+
+.results-page::before {
+	content: '';
+	position: fixed;
+	top: -5%;
+	left: -5%;
+	width: 110%;
+	height: 110%;
+	background: url("assets/Background.jpg") center / cover no-repeat;
+	filter: blur(8px);
+	z-index: -1;
+}
 
 .landing-page > section {
 	width: min(100%, 960px);

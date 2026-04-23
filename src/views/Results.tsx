@@ -89,7 +89,6 @@ export default function Results() {
 
     return (
         <div className="results-page" style={{ padding: "2rem", textAlign: "center" }}>
-            <h1>Game Over</h1>
             <h2>Your Score: {totalScore}</h2>
 
             {leaderboardMode ? (
