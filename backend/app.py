@@ -27,6 +27,7 @@ redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token els
 LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
 SESSION_LOCK_TTL_SECONDS = 10
+SESSION_TTL_SECONDS = 60 * 60 * 24 # 24 hours, sessions expire after this
 
 IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image_map.json")
 with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:
@@ -94,18 +95,13 @@ def release_session_lock(session_id, lock_token):
         # lock if failed
         pass
 
-# save to redis
+# save to redis with a 24 hour ttl so old sessions don't pile up
 def save_session(session):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session.session_id}"
     session_json = json.dumps(session.to_dict())
-
-    try:
-        redis.delete(key)
-    except Exception:
-        pass
-    redis.set(key, session_json)
+    redis.set(key, session_json, ex=SESSION_TTL_SECONDS)
 
 # load from redis
 def load_session(session_id):
@@ -130,6 +126,7 @@ def load_session(session_id):
 def save_guess(guess):
     key = f"session:{guess.session_id}:guesses"
     redis.lpush(key, guess.to_json())
+    redis.expire(key, SESSION_TTL_SECONDS) # match session ttl so guesses don't outlive their session
 
 # all guesses for a given session
 def load_guesses(session_id):
@@ -630,6 +627,7 @@ def add_to_leaderboard():
         return jsonify({"error": "Valid score is required."}), 400
 
     redis.zadd(LEADERBOARD_KEY, {name: score})
+    redis.zremrangebyrank(LEADERBOARD_KEY, 0, -(MAX_LEADERBOARD_SIZE + 1)) # trim lowest scores so the set stays at 50
     position = redis.zrevrank(LEADERBOARD_KEY, name) + 1
 
     return jsonify({"name": name, "score": score, "position": position}), 201

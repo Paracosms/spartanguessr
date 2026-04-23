@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://spartanguessr.onrender.com";
 
 type LeaderboardEntry = {
     name: string;
@@ -12,6 +12,7 @@ type LeaderboardEntry = {
 type ResultsRouteState = {
     totalScore?: number;
     sessionId?: string;
+    leaderboardMode?: boolean;
 } | null;
 
 export default function Results() {
@@ -23,6 +24,7 @@ export default function Results() {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
     const location = useLocation();
     const routeState = location.state as ResultsRouteState;
+    const leaderboardMode = routeState?.leaderboardMode ?? false;
 
     async function checkQualification(score: number) {
         try {
@@ -84,27 +86,34 @@ export default function Results() {
             <h1>Game Over</h1>
             <h2>Your Score: {totalScore}</h2>
 
-            {qualifies && !submitted && (
-                <div style={{ margin: "2rem 0" }}>
-                    <h3>🎉 You made the top 50!</h3>
-                    <form onSubmit={handleSubmitName}>
-                        <input
-                            type="text"
-                            placeholder="Enter your name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            maxLength={20}
-                            style={{ padding: "0.5rem", marginRight: "0.5rem" }}
-                        />
-                        <button type="submit" style={{ padding: "0.5rem 1rem" }}>
-                            Submit
-                        </button>
-                    </form>
-                </div>
-            )}
-
-            {submitted && (
-                <p style={{ color: "green" }}>Score submitted! You ranked #{position}</p>
+            {leaderboardMode ? (
+                <>
+                    {qualifies && !submitted && (
+                        <div style={{ margin: "2rem 0" }}>
+                            <h3>You made the top 50!</h3>
+                            <form onSubmit={handleSubmitName}>
+                                <input
+                                    type="text"
+                                    placeholder="Enter your name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    maxLength={20}
+                                    style={{ padding: "0.5rem", marginRight: "0.5rem" }}
+                                />
+                                <button type="submit" style={{ padding: "0.5rem 1rem" }}>
+                                    Submit
+                                </button>
+                            </form>
+                        </div>
+                    )}
+                    {submitted && (
+                        <p style={{ color: "green" }}>Score submitted! You ranked #{position}</p>
+                    )}
+                </>
+            ) : (
+                <p style={{ marginTop: "1rem", color: "#888" }}>
+                    Play Leaderboard Mode to participate in the leaderboard.
+                </p>
             )}
 
             <div style={{ marginTop: "2rem" }}>
