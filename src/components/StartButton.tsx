@@ -156,6 +156,7 @@ export default function StartButton() {
                     sessionId: result.session_id,
                     roundCount: effectiveSettings.round_count,
                     difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
+                    unlabeledMap: effectiveSettings.unlabled_map,
                     outsideOnly: effectiveSettings.outside_only,
                     timerLength: effectiveSettings.timer_length,
                     seed: normalizedSeed,

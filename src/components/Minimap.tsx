@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import mapLabeled from "../assets/MapLabeled.jpg";
-//import mapUnlabeled from "../assets/MapUnlabeled.jpg";
+import mapUnlabeled from "../assets/MapUnlabeled.jpg";
 import pin from "../assets/Pin.png";
 type Point = { x: number; y: number };
 type ViewState = { scale: number; offset: Point };
 type MinimapProps = {
     pinPosition: Point | null;
     onPinChange: (point: Point) => void;
+    unlabled: boolean;
     allowPinPlacement?: boolean;
     mapHeightVh?: number;
     initialScale?: number;
@@ -24,7 +25,7 @@ const INITIAL_MAP_POS = {x: -650, y: -750}
 const MAP_HEIGHT = 40; // -> 40vh
 const PIN_SIZE_PX = 30;
 const INITIAL_SCALE = 1; // prod = 1.0
-const ZOOM_SPEED = 0.05;
+const ZOOM_SPEED = 0.1;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
 const BASE_MIN_ZOOM = 0.25; // The scale that encompasses the entire map on a MIN_ZOOM_REFERENCE_HEIGHT px display
@@ -40,6 +41,7 @@ const MINIMAP_HEIGHT = 1503;
 export default function Minimap({
     pinPosition,
     onPinChange,
+    unlabled,
     allowPinPlacement = true,
     mapHeightVh = MAP_HEIGHT,
     initialScale = INITIAL_SCALE,
@@ -128,11 +130,8 @@ export default function Minimap({
         const mouseY = e.clientY - rect.top;
 
         setView((prev) => {
-            // Zoom in/out by zoomFactor, should be better for trackpads
-            const isTrackpad = Math.abs(e.deltaY) < 50;
-            const speed = isTrackpad ? 0.015 : 0.003;
-            const zoomFactor = 1 - e.deltaY * speed;
-            const nextScale = clamp(round(prev.scale * zoomFactor, 4), minZoom, MAX_ZOOM);
+            const zoomFactor = e.deltaY > 0 ? -ZOOM_SPEED : ZOOM_SPEED;
+            const nextScale = clamp(round(prev.scale + zoomFactor, 4), minZoom, MAX_ZOOM);
 
             // Avoid useless updates
             if (nextScale === prev.scale) return prev;
@@ -290,10 +289,9 @@ export default function Minimap({
             touchAction: "none",
         }}
     >
-
         <img
             className={"minimap-img"}
-            src={mapLabeled}
+            src={unlabled ? mapUnlabeled : mapLabeled}
             alt="Campus Minimap"
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
@@ -304,6 +302,7 @@ export default function Minimap({
                 pointerEvents: "none",
             }}
         />
+        
         {pinPosition && (
             <img
                 src={pin}

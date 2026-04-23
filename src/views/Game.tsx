@@ -10,6 +10,7 @@ type GameRouteState = {
     sessionId?: string;
     roundCount?: number;
     difficulty?: ApiDifficulty;
+    unlabeledMap?: boolean;
     outsideOnly?: boolean;
     timerLength?: string;
     seed?: string;
@@ -35,6 +36,7 @@ export default function Game() {
             : 5;
 
     const difficulty: ApiDifficulty = gameState?.difficulty ?? "medium";
+    const unlabeledMap = gameState?.unlabeledMap ?? false;
     const outsideOnly = gameState?.outsideOnly ?? false;
     const timerLength = gameState?.timerLength ?? "none";
     const seed = (gameState?.seed ?? "").trim();
@@ -167,7 +169,12 @@ export default function Game() {
                         Current Round: {roundNumber}/{maxRounds}
                     </p>
 
-                    <Minimap pinPosition={pinPosition} onPinChange={setPinPosition} />
+                    <Minimap
+                        pinPosition={pinPosition}
+                        unlabled={unlabeledMap}
+                        onPinChange={setPinPosition}
+                    />
+
                     <GuessButton
                         session_id={sessionId}
                         image_url={roundImageUrl}
