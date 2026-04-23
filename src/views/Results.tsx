@@ -16,15 +16,20 @@ type ResultsRouteState = {
 } | null;
 
 export default function Results() {
+    const location = useLocation();
+    const routeState = location.state as ResultsRouteState;
+    const leaderboardMode = routeState?.leaderboardMode ?? false;
+    const sessionId = routeState?.sessionId ?? null;
+    const submittedKey = sessionId ? `leaderboard_submitted_${sessionId}` : null;
+
     const [totalScore, setTotalScore] = useState<number>(0);
     const [qualifies, setQualifies] = useState<boolean>(false);
     const [position, setPosition] = useState<number | null>(null);
     const [name, setName] = useState<string>("");
-    const [submitted, setSubmitted] = useState<boolean>(false);
+    const [submitted, setSubmitted] = useState<boolean>(
+        () => submittedKey ? sessionStorage.getItem(submittedKey) === "true" : false
+    );
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-    const location = useLocation();
-    const routeState = location.state as ResultsRouteState;
-    const leaderboardMode = routeState?.leaderboardMode ?? false;
 
     async function checkQualification(score: number) {
         try {
@@ -74,6 +79,7 @@ export default function Results() {
             });
             if (res.ok) {
                 setSubmitted(true);
+                if (submittedKey) sessionStorage.setItem(submittedKey, "true");
                 fetchLeaderboard();
             }
         } catch (err) {
