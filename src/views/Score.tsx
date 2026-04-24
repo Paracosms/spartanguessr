@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 
 type Point = { x: number; y: number };
-const BASE_MIN_ZOOM = 0.685; // magic number achieved through trial and error
 
 type ApiDifficulty = "easy" | "medium" | "hard";
 
@@ -121,8 +120,8 @@ export default function Score() {
 					allowPinPlacement={false}
 					mapHeightVh={80}
                     unlabeled={unlabeled}
-					initialScale={BASE_MIN_ZOOM}
-					minZoomFloor={BASE_MIN_ZOOM}
+					minZoomMode="fit"
+					initializeScaleToMinZoom
 					actualPosition={actualPos}
 					showActualDot
 				/>
