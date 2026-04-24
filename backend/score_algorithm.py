@@ -18,6 +18,8 @@ def score_algorithm(guess_point, correct_point):
 
     # calculate score
     score = 5000 * pow(math.e, (-10 * (distance / MAX_DISTANCE)))
+    if (score > 4950):
+        score = 5000
     return round(score), distance
 
 # print(score_algorithm([0,0], [0,0]))

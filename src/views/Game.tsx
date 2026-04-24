@@ -154,6 +154,11 @@ export default function Game() {
                      style={{
                         width: "100vw",
                         height: "100vh",
+                        objectFit: "contain",
+                        background: "#000000", // "#1176B9" // blue background to match sjsu logo?
+                        // adds outline around the browser window
+                        // border: "6px solid #FFC108",
+                        // boxSizing: "border-box",
                     }}
                 />
             )}
