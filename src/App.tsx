@@ -16,7 +16,7 @@ function LandingPage() {
     return (
         <main className="landing-page">
             <section>
-                <img src={Logo}/>
+                <img src={Logo} style={{height: "20vh"}}/>
                 <p className="subtitle">
                     How well do you know SJSU?
                 </p>
