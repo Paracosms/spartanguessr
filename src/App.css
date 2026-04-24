@@ -177,6 +177,20 @@ body {
 	image-rendering: pixelated;
 }
 
+.leaderboard-scroll::-webkit-scrollbar {
+	width: 8px;
+}
+.leaderboard-scroll::-webkit-scrollbar-track {
+	background: #000;
+}
+.leaderboard-scroll::-webkit-scrollbar-thumb {
+	background: #333;
+	border-radius: 4px;
+}
+.leaderboard-scroll::-webkit-scrollbar-thumb:hover {
+	background: #555;
+}
+
 @media (max-width: 768px) {
 	.landing-page {
 		padding: 1rem;
