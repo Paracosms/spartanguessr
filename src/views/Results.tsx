@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
-import birdseyeBg from "../assets/birdeye_campus.jpg";
+import {useLocation, useNavigate} from "react-router-dom";
+import birdseyeBg from "../assets/Background.jpg";//"../assets/birdeye_campus.jpg";
 
 const API_URL = "https://spartanguessr.onrender.com";
 const BLUE = "#1176B9";
@@ -35,6 +35,7 @@ export default function Results() {
         () => submittedKey ? sessionStorage.getItem(submittedKey) === "true" : false
     );
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const navigate = useNavigate();
 
     async function checkQualification(score: number) {
         try {
@@ -90,6 +91,10 @@ export default function Results() {
         } catch (err) {
             console.error("Failed to submit score:", err);
         }
+    }
+
+    async function returnToMainMenu() {
+        navigate("/")
     }
 
     function getRankLabel(rank: number) {
@@ -260,18 +265,20 @@ export default function Results() {
                     </div>
                 </div>
 
-                <button style={{
-                    marginTop: "1.5rem",
-                    padding: "0.75rem 2rem",
-                    background: GOLD,
-                    color: "#000",
-                    fontWeight: 700,
-                    fontSize: "1rem",
-                    border: "none",
-                    borderRadius: "14px",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                }}>
+                <button
+                    onClick={returnToMainMenu}
+                    style={{
+                        marginTop: "1.5rem",
+                        padding: "0.75rem 2rem",
+                        background: GOLD,
+                        color: "#000",
+                        fontWeight: 700,
+                        fontSize: "1rem",
+                        border: "none",
+                        borderRadius: "14px",
+                        cursor: "pointer",
+                        fontFamily: "inherit",}}
+                >
                     Play Again
                 </button>
 
