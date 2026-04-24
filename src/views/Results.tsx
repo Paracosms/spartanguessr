@@ -124,7 +124,10 @@ export default function Results() {
             <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
 
                 <div style={{ marginBottom: "1rem", textAlign: "center" }}>
-                    <p style={{ color: GOLD, fontSize: "7.65rem", marginTop: "0rem", marginBottom: 0, fontWeight: 800, WebkitTextStroke: `6px ${BLUE}`, display: "inline-block", lineHeight: 1.1 }}>
+                    <p style={{ color: GOLD, fontSize: "0.8rem", marginTop: "0.75rem", marginBottom: "0.25rem", letterSpacing: "0.1em", fontWeight: 700 }}>
+                        YOUR SCORE
+                    </p>
+                    <p style={{ color: GOLD, fontSize: "6.6rem", marginTop: 0, marginBottom: 0, fontWeight: 800, WebkitTextStroke: `6px ${BLUE}`, display: "inline-block", lineHeight: 1.1 }}>
                         {totalScore.toLocaleString()}
                     </p>
                 </div>
@@ -197,7 +200,7 @@ export default function Results() {
                 }}>
                     <div style={{ flexShrink: 0, padding: "0.6rem 1.5rem 0" }}>
                         {submitted && (
-                            <p style={{ color: GOLD, fontSize: "1rem", fontWeight: 700, margin: "0 0 0.3rem", textAlign: "center", WebkitTextStroke: "1px #000" }}>
+                            <p style={{ color: GOLD, fontSize: "1rem", fontWeight: 700, margin: "0 0 0.3rem", textAlign: "center" }}>
                                 Score saved! You ranked #{position}
                             </p>
                         )}
