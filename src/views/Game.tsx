@@ -18,6 +18,7 @@ type GameRouteState = {
 } | null;
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
+const GAME_MINIMAP_HEIGHT_PX = 378;
 
 export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
@@ -178,6 +179,8 @@ export default function Game() {
                         pinPosition={pinPosition}
                         unlabeled={unlabeledMap}
                         onPinChange={setPinPosition}
+                        mapHeightPx={GAME_MINIMAP_HEIGHT_PX}
+                        minZoomMode="fit"
                     />
 
                     <GuessButton
