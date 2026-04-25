@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
-import birdseyeBg from "../assets/Background.jpg";//"../assets/birdeye_campus.jpg";
+import Background from "../assets/LeaderboardBackground.jpg";
 
 const API_URL = "https://spartanguessr.onrender.com";
 const BLUE = "#1176B9";
@@ -119,7 +119,7 @@ export default function Results() {
             <div style={{
                 position: "fixed",
                 inset: "-20px",
-                backgroundImage: `url(${birdseyeBg})`,
+                backgroundImage: `url(${Background})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 filter: "blur(1px) brightness(0.7)",
