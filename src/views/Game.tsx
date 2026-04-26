@@ -19,6 +19,8 @@ type GameRouteState = {
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
 const GAME_MINIMAP_HEIGHT_PX = 378;
+const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
+const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
 
 export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
@@ -26,6 +28,7 @@ export default function Game() {
     const [roundImageUrl, setRoundImageUrl] = useState<string | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
+    const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
     const location = useLocation();
 
     const gameState = location.state as GameRouteState;
@@ -175,13 +178,19 @@ export default function Game() {
                         Current Round: {roundNumber}/{maxRounds}
                     </p>
 
-                    <Minimap
-                        pinPosition={pinPosition}
-                        unlabeled={unlabeledMap}
-                        onPinChange={setPinPosition}
-                        mapHeightPx={GAME_MINIMAP_HEIGHT_PX}
-                        minZoomMode="fit"
-                    />
+                    {/* shrinks to 70% when idle, expands on hover */}
+                    <div onMouseEnter={() => setMinimapHovered(true)} onMouseLeave={() => setMinimapHovered(false)}
+                         style={{transform: minimapHovered ? "scale(1)" : "scale(0.7)", transformOrigin: "bottom right", transition: "transform 0.2s ease"}}>
+                        <Minimap
+                            pinPosition={pinPosition}
+                            unlabeled={unlabeledMap}
+                            onPinChange={setPinPosition}
+                            mapHeightPx={GAME_MINIMAP_HEIGHT_PX}
+                            minZoomMode="fit"
+                            initialScale={GAME_MINIMAP_INITIAL_SCALE}
+                            initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
+                        />
+                    </div>
 
                     <GuessButton
                         session_id={sessionId}

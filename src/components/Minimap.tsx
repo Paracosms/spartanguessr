@@ -12,6 +12,7 @@ type MinimapProps = {
     mapHeightVh?: number;
     mapHeightPx?: number;
     initialScale?: number;
+    initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
     minZoomFloor?: number;
     minZoomMode?: "legacy" | "fit";
     initializeScaleToMinZoom?: boolean;
@@ -25,7 +26,7 @@ declare global {
 }
 
 // Constants you might want to tweak
-const INITIAL_MAP_POS = {x: -650, y: -750}
+const INITIAL_MAP_POS = {x: -2100, y: -2300}
 const MAP_HEIGHT = 40; // -> 40vh
 const PIN_SIZE_PX = 30;
 const INITIAL_SCALE = 1; // prod = 1.0
@@ -52,6 +53,7 @@ export default function Minimap({
     mapHeightVh = MAP_HEIGHT,
     mapHeightPx,
     initialScale = INITIAL_SCALE,
+    initialOffset = INITIAL_MAP_POS,
     minZoomFloor,
     minZoomMode = "legacy",
     initializeScaleToMinZoom = false,
@@ -62,7 +64,7 @@ export default function Minimap({
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
     const [view, setView] = useState<ViewState>(() => ({
         scale: initialScale,
-        offset: INITIAL_MAP_POS,
+        offset: initialOffset,
     }));
     const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
