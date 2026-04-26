@@ -187,8 +187,8 @@ export default function Results() {
                 )}
 
                 {!leaderboardMode && (
-                    <p style={{ color: "#ccc", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-                        Play Leaderboard Mode to compete
+                    <p style={{ color: GOLD, fontSize: "0.85rem", marginBottom: "1.5rem", letterSpacing: "0.1em", fontWeight: 700 }}>
+                        PLAY LEADERBOARD MODE TO COMPETE!
                     </p>
                 )}
 
