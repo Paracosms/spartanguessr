@@ -337,7 +337,7 @@ export default function Minimap({
                     position: "absolute",
                     left: `${offset.x + pinPosition.x * scale}px`,
                     top: `${offset.y + pinPosition.y * scale}px`,
-                    transform: "translate(-50%, -100%) translate(-6px, -4px)",
+                    transform: "translate(-50%, -100%) translate(-5px, -2px)", // aj messed with pin translate
                     width: `${PIN_SIZE_PX / 1.5}px`,
                     pointerEvents: "none",
                     userSelect: "none",

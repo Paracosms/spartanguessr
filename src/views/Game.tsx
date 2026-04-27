@@ -19,6 +19,7 @@ type GameRouteState = {
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
 const GAME_MINIMAP_HEIGHT_PX = 378;
+const GAME_MINIMAP_ENLARGED_WIDTH_PX = Math.round(GAME_MINIMAP_HEIGHT_PX * (1428 / 1503) * 0.7); // match guess button to minimap size
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
 const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
 
@@ -179,7 +180,7 @@ export default function Game() {
                 </p>
             </div>
 
-            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3">
+            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3" style={{alignItems: "flex-end"}}>
                     {/* shrinks to 70% when idle, expands on hover */}
                     <div onMouseEnter={() => setMinimapHovered(true)} onMouseLeave={() => setMinimapHovered(false)}
                          style={{transform: minimapHovered ? "scale(1.2)" : "scale(0.7)", transformOrigin: "bottom right", transition: "transform 0.2s ease"}}>
@@ -195,17 +196,19 @@ export default function Game() {
                         />
                     </div>
 
-                    <GuessButton
-                        session_id={sessionId}
-                        image_url={roundImageUrl}
-                        round_number={roundNumber}
-                        max_rounds={maxRounds}
-                        coordinates={pinPosition}
-                        gameState={gameNavigationState}
-                        onGameComplete={() => {}}
-                        seed={seed}
-                        autoSubmitSignal={autoSubmitSignal}
-                    />
+                    <div style={{width: `${GAME_MINIMAP_ENLARGED_WIDTH_PX}px`}}>
+                        <GuessButton
+                            session_id={sessionId}
+                            image_url={roundImageUrl}
+                            round_number={roundNumber}
+                            max_rounds={maxRounds}
+                            coordinates={pinPosition}
+                            gameState={gameNavigationState}
+                            onGameComplete={() => {}}
+                            seed={seed}
+                            autoSubmitSignal={autoSubmitSignal}
+                        />
+                    </div>
             </div>
         </>
     );
