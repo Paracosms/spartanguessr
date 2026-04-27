@@ -173,14 +173,16 @@ export default function Game() {
                 </p>
             </div>
 
-            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3">
-                    <p className="text-black text-center bg-white rounded shadow border border-5 border-warning" style={{fontSize: "30px", fontWeight: "400"}}>
-                        Current Round: {roundNumber}/{maxRounds}
-                    </p>
+            <div className="position-absolute top-0 end-0 p-3">
+                <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
+                    Current Round: {roundNumber}/{maxRounds}
+                </p>
+            </div>
 
+            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3">
                     {/* shrinks to 70% when idle, expands on hover */}
                     <div onMouseEnter={() => setMinimapHovered(true)} onMouseLeave={() => setMinimapHovered(false)}
-                         style={{transform: minimapHovered ? "scale(1)" : "scale(0.7)", transformOrigin: "bottom right", transition: "transform 0.2s ease"}}>
+                         style={{transform: minimapHovered ? "scale(1.2)" : "scale(0.7)", transformOrigin: "bottom right", transition: "transform 0.2s ease"}}>
                         <Minimap
                             pinPosition={pinPosition}
                             unlabeled={unlabeledMap}
@@ -189,6 +191,7 @@ export default function Game() {
                             minZoomMode="fit"
                             initialScale={GAME_MINIMAP_INITIAL_SCALE}
                             initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
+                            cssScale={minimapHovered ? 1.2 : 0.7}
                         />
                     </div>
 

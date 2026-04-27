@@ -13,6 +13,7 @@ type MinimapProps = {
     mapHeightPx?: number;
     initialScale?: number;
     initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
+    cssScale?: number; // scale of the wrapper div, used to correct pin placement math
     minZoomFloor?: number;
     minZoomMode?: "legacy" | "fit";
     initializeScaleToMinZoom?: boolean;
@@ -54,6 +55,7 @@ export default function Minimap({
     mapHeightPx,
     initialScale = INITIAL_SCALE,
     initialOffset = INITIAL_MAP_POS,
+    cssScale = 1,
     minZoomFloor,
     minZoomMode = "legacy",
     initializeScaleToMinZoom = false,
@@ -94,10 +96,10 @@ export default function Minimap({
         const container = containerRef.current;
         if (!container) return;
 
-        // Converts global to local mouse coordinates
+        // Converts global to local mouse coordinates (divide by cssScale to fix pin offset when minimap is scaled)
         const rect = container.getBoundingClientRect();
-        const mouseX = round(e.clientX - rect.left, 0);
-        const mouseY = round(e.clientY - rect.top, 0);
+        const mouseX = round((e.clientX - rect.left) / cssScale, 0);
+        const mouseY = round((e.clientY - rect.top) / cssScale, 0);
 
         // Save pin in map coordinates so it remains anchored through zooms/pans
         onPinChange({
