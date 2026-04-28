@@ -18,8 +18,8 @@ type GameRouteState = {
 } | null;
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
-const GAME_MINIMAP_HEIGHT_PX = 378;
-const GAME_MINIMAP_ENLARGED_WIDTH_PX = Math.round(GAME_MINIMAP_HEIGHT_PX * (1428 / 1503) * 0.7); // match guess button to minimap size
+const GAME_MINIMAP_HEIGHT_VH = 35; // vh scales with monitor size
+const GAME_MINIMAP_BUTTON_WIDTH = `calc(${GAME_MINIMAP_HEIGHT_VH}vh * ${((1428 / 1503) * 0.7).toFixed(4)})`; // match guess button to minimap size
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
 const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
 
@@ -188,7 +188,7 @@ export default function Game() {
                             pinPosition={pinPosition}
                             unlabeled={unlabeledMap}
                             onPinChange={setPinPosition}
-                            mapHeightPx={GAME_MINIMAP_HEIGHT_PX}
+                            mapHeightVh={GAME_MINIMAP_HEIGHT_VH}
                             minZoomMode="fit"
                             initialScale={GAME_MINIMAP_INITIAL_SCALE}
                             initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
@@ -196,7 +196,7 @@ export default function Game() {
                         />
                     </div>
 
-                    <div style={{width: `${GAME_MINIMAP_ENLARGED_WIDTH_PX}px`}}>
+                    <div style={{width: GAME_MINIMAP_BUTTON_WIDTH}}>
                         <GuessButton
                             session_id={sessionId}
                             image_url={roundImageUrl}
