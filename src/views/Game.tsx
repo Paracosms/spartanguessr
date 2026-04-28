@@ -19,7 +19,7 @@ type GameRouteState = {
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
 const GAME_MINIMAP_HEIGHT_PX_MIN = 378; // floor so it never shrinks below what worked on laptop
-const GAME_MINIMAP_HEIGHT_VH_RATIO = 0.40; // scales up on larger/higher-res monitors
+const GAME_MINIMAP_HEIGHT_VH_RATIO = 0.55; // scales up on larger/higher-res monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
 const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
 
