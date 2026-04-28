@@ -355,7 +355,7 @@ export default function Minimap({
                     borderRadius: "50%",
                     background: "#ff3b30",
                     border: "2px solid white",
-                    transform: "translate(-50%, -50%)",
+                    transform: "translate(-50%, -50%) translate(-7px, -7px)",
                     pointerEvents: "none",
                     boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
                 }}
