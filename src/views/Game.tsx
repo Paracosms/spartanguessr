@@ -18,14 +18,14 @@ type GameRouteState = {
 } | null;
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
-const GAME_MINIMAP_HEIGHT_PX_MIN = 378; // floor so it never shrinks below what worked on laptop
-const GAME_MINIMAP_HEIGHT_VH_RATIO = 0.55; // scales up on larger/higher-res monitors
+const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
+const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
 const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
 
-// Computes minimap height: scales with viewport but never goes below the minimum
+// scales minimap with viewport, never below minimum
 function computeMinimapHeight() {
-    return Math.max(GAME_MINIMAP_HEIGHT_PX_MIN, Math.round(window.innerHeight * GAME_MINIMAP_HEIGHT_VH_RATIO));
+    return Math.max(GAME_MINIMAP_HEIGHT_MIN_PX, Math.round(window.innerHeight * GAME_MINIMAP_HEIGHT_VH));
 }
 
 export default function Game() {
@@ -35,7 +35,7 @@ export default function Game() {
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
-    const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight); // responsive minimap height
+    const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
     const location = useLocation();
 
     const gameState = location.state as GameRouteState;
@@ -156,7 +156,7 @@ export default function Game() {
         };
     }, [roundImageUrl, roundNumber, roundTimerSeconds]);
 
-    // Keep minimap height in sync when window is resized
+    // update minimap height on resize
     useEffect(() => {
         function handleResize() {
             setMinimapHeightPx(computeMinimapHeight());
@@ -211,7 +211,8 @@ export default function Game() {
                         />
                     </div>
 
-                    <div style={{width: `${Math.round(minimapHeightPx * (1428 / 1503) * 0.7)}px`}}> {/* match guess button to minimap size */}
+                    {/* match guess button to minimap size */}
+                    <div style={{width: `${Math.round(minimapHeightPx * (1428 / 1503) * 0.7)}px`}}>
                         <GuessButton
                             session_id={sessionId}
                             image_url={roundImageUrl}

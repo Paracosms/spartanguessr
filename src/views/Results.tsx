@@ -98,8 +98,13 @@ export default function Results() {
     }
 
     function getRankLabel(rank: number) {
-        const suffixes: Record<number, string> = { 1: "ST", 2: "ND", 3: "RD" };
-        return `${rank}${suffixes[rank] ?? "TH"}`;
+        const mod100 = rank % 100;
+        const mod10 = rank % 10;
+        if (mod100 >= 11 && mod100 <= 13) return `${rank}TH`; // 11th, 12th, 13th are exceptions
+        if (mod10 === 1) return `${rank}ST`;
+        if (mod10 === 2) return `${rank}ND`;
+        if (mod10 === 3) return `${rank}RD`;
+        return `${rank}TH`;
     }
 
     function getRowColor(rank: number) {
