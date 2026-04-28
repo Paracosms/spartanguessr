@@ -1,6 +1,6 @@
 :root {
 	color: #f7f4ea;
-	font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	--font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -18,11 +18,29 @@ body {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 2rem;
+	padding: 0.5rem;
 	background: url("assets/Background.jpg") center / cover no-repeat;
 	text-align: center;
 }
 
+.results-page {
+	background-size: auto;
+	position: relative;
+	min-height: 100vh;
+	overflow: hidden;
+}
+
+.results-page::before {
+	content: '';
+	position: fixed;
+	top: -5%;
+	left: -5%;
+	width: 110%;
+	height: 110%;
+	background: url("assets/Background.jpg") center / cover no-repeat;
+	filter: blur(8px);
+	z-index: -1;
+}
 
 .landing-page > section {
 	width: min(100%, 960px);
@@ -42,7 +60,9 @@ body {
 	max-width: 640px;
 	margin: 0 auto 2rem;
     color: #f7f4ea;
-	font-size: clamp(1rem, 2.3vw, 1.2rem);
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
 	line-height: 1.7;
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 1));
 }
@@ -157,6 +177,20 @@ body {
 
 .minimap-img {
 	image-rendering: pixelated;
+}
+
+.leaderboard-scroll::-webkit-scrollbar {
+	width: 8px;
+}
+.leaderboard-scroll::-webkit-scrollbar-track {
+	background: #000;
+}
+.leaderboard-scroll::-webkit-scrollbar-thumb {
+	background: #333;
+	border-radius: 4px;
+}
+.leaderboard-scroll::-webkit-scrollbar-thumb:hover {
+	background: #555;
 }
 
 @media (max-width: 768px) {

@@ -24,3 +24,4 @@ def score_algorithm(guess_point, correct_point):
 
 # print(score_algorithm([0,0], [0,0]))
 # ^ just for debugging
+# test

@@ -18,6 +18,10 @@ type GameRouteState = {
 } | null;
 
 const API_BASE_URL = "https://spartanguessr.onrender.com";
+const GAME_MINIMAP_HEIGHT_PX = 378;
+const GAME_MINIMAP_ENLARGED_WIDTH_PX = Math.round(GAME_MINIMAP_HEIGHT_PX * (1428 / 1503) * 0.7); // match guess button to minimap size
+const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
+const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
 
 export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
@@ -25,6 +29,7 @@ export default function Game() {
     const [roundImageUrl, setRoundImageUrl] = useState<string | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
+    const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
     const location = useLocation();
 
     const gameState = location.state as GameRouteState;
@@ -155,7 +160,7 @@ export default function Game() {
                         width: "100vw",
                         height: "100vh",
                         objectFit: "contain",
-                        background: "#000000", // "#1176B9",
+                        background: "#000000", // "#1176B9" // blue background to match sjsu logo?
                         // adds outline around the browser window
                         // border: "6px solid #FFC108",
                         // boxSizing: "border-box",
@@ -169,28 +174,41 @@ export default function Game() {
                 </p>
             </div>
 
-            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3">
-                    <p className="text-black text-center bg-white rounded shadow border border-5 border-warning" style={{fontSize: "30px", fontWeight: "400"}}>
-                        Current Round: {roundNumber}/{maxRounds}
-                    </p>
+            <div className="position-absolute top-0 end-0 p-3">
+                <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
+                    Current Round: {roundNumber}/{maxRounds}
+                </p>
+            </div>
 
-                    <Minimap
-                        pinPosition={pinPosition}
-                        unlabeled={unlabeledMap}
-                        onPinChange={setPinPosition}
-                    />
+            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3" style={{alignItems: "flex-end"}}>
+                    {/* shrinks to 70% when idle, expands on hover */}
+                    <div onMouseEnter={() => setMinimapHovered(true)} onMouseLeave={() => setMinimapHovered(false)}
+                         style={{transform: minimapHovered ? "scale(1.2)" : "scale(0.7)", transformOrigin: "bottom right", transition: "transform 0.2s ease"}}>
+                        <Minimap
+                            pinPosition={pinPosition}
+                            unlabeled={unlabeledMap}
+                            onPinChange={setPinPosition}
+                            mapHeightPx={GAME_MINIMAP_HEIGHT_PX}
+                            minZoomMode="fit"
+                            initialScale={GAME_MINIMAP_INITIAL_SCALE}
+                            initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
+                            cssScale={minimapHovered ? 1.2 : 0.7}
+                        />
+                    </div>
 
-                    <GuessButton
-                        session_id={sessionId}
-                        image_url={roundImageUrl}
-                        round_number={roundNumber}
-                        max_rounds={maxRounds}
-                        coordinates={pinPosition}
-                        gameState={gameNavigationState}
-                        onGameComplete={() => {}}
-                        seed={seed}
-                        autoSubmitSignal={autoSubmitSignal}
-                    />
+                    <div style={{width: `${GAME_MINIMAP_ENLARGED_WIDTH_PX}px`}}>
+                        <GuessButton
+                            session_id={sessionId}
+                            image_url={roundImageUrl}
+                            round_number={roundNumber}
+                            max_rounds={maxRounds}
+                            coordinates={pinPosition}
+                            gameState={gameNavigationState}
+                            onGameComplete={() => {}}
+                            seed={seed}
+                            autoSubmitSignal={autoSubmitSignal}
+                        />
+                    </div>
             </div>
         </>
     );

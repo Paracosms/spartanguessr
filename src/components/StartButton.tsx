@@ -131,7 +131,6 @@ export default function StartButton() {
             effectiveSettings.leaderboard_mode
                 ? generateRandomSeed()
                 : effectiveSettings.seed.trim() || generateRandomSeed();
-        console.log(normalizedSeed)
 
         try {
             const res = await fetch(`${API_BASE_URL}/session`, {
