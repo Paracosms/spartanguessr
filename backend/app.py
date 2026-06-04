@@ -62,6 +62,39 @@ def parse_bool(value, default=False):
         return value != 0
     return str(value).strip().lower() in ("1", "true", "yes", "on")
 
+def encode_leaderboard_member(session_id, name):
+    return json.dumps({
+        "session_id": str(session_id),
+        "name": name,
+    }, separators=(",", ":"))
+
+def get_leaderboard_member_name(member):
+    if isinstance(member, (bytes, bytearray)):
+        member = member.decode("utf-8")
+
+    try:
+        data = json.loads(member)
+        if isinstance(data, dict) and "name" in data:
+            return str(data.get("name") or "Anonymous")
+    except (TypeError, ValueError):
+        pass
+
+    return str(member)
+
+def get_leaderboard_position_for_score(score):
+    count = redis.zcard(LEADERBOARD_KEY)
+    if count < MAX_LEADERBOARD_SIZE:
+        return True, redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1
+
+    lowest = redis.zrange(LEADERBOARD_KEY, MAX_LEADERBOARD_SIZE - 1, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
+    if lowest:
+        lowest_score = int(lowest[0][1])
+        qualifies = score >= lowest_score
+        position = redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1 if qualifies else None
+        return qualifies, position
+
+    return True, 1
+
 # error debugging (i hate redis)
 def format_redis_error(err):
     message = str(err).strip() or err.__class__.__name__
@@ -576,12 +609,12 @@ def get_leaderboard():
     prev_score = None
     rank = 0
 
-    for i, (name, score) in enumerate(results):
+    for i, (member, score) in enumerate(results):
         score = int(score)
         if score != prev_score:
             rank = i + 1
             prev_score = score
-        leaderboard.append({"name": name, "score": score, "rank": rank})
+        leaderboard.append({"name": get_leaderboard_member_name(member), "score": score, "rank": rank})
 
     return jsonify(leaderboard), 200
 
@@ -594,43 +627,66 @@ def check_qualify():
     if score is None:
         return jsonify({"error": "Score is required."}), 400
 
-    count = redis.zcard(LEADERBOARD_KEY)
-    if count < MAX_LEADERBOARD_SIZE:
-        position = redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1
-        return jsonify({"qualifies": True, "position": position}), 200
-
-    lowest = redis.zrange(LEADERBOARD_KEY, MAX_LEADERBOARD_SIZE - 1, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
-    if lowest:
-        lowest_score = int(lowest[0][1])
-        qualifies = score >= lowest_score
-        position = redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1 if qualifies else None
-        return jsonify({"qualifies": qualifies, "position": position}), 200
-
-    return jsonify({"qualifies": True}), 200
+    qualifies, position = get_leaderboard_position_for_score(score)
+    return jsonify({"qualifies": qualifies, "position": position}), 200
 
 
 # POST /leaderboard
-# Add a score to the leaderboard
-# Body: { "name": "player_name", "score": 5000 }
+# Add a completed leaderboard-mode session's server-calculated score to the leaderboard.
+# Body: { "session_id": "session_id", "name": "player_name" }
 @app.route("/leaderboard", methods=["POST"])
 def add_to_leaderboard():
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
     name = data.get("name", "").strip()
-    score = data.get("score")
+    session_id = str(data.get("session_id", "")).strip()
 
     if not name:
         return jsonify({"error": "Name is required."}), 400
-    if not isinstance(score, int) or score < 0:
-        return jsonify({"error": "Valid score is required."}), 400
+    if len(name) > 20:
+        return jsonify({"error": "Name must be 20 characters or fewer."}), 400
+    if "score" in data:
+        return jsonify({"error": "Scores are calculated server-side. Submit session_id and name only."}), 400
+    if not session_id:
+        return jsonify({"error": "session_id is required."}), 400
 
-    redis.zadd(LEADERBOARD_KEY, {name: score})
-    redis.zremrangebyrank(LEADERBOARD_KEY, 0, -(MAX_LEADERBOARD_SIZE + 1)) # trim lowest scores so the set stays at 50
-    position = redis.zrevrank(LEADERBOARD_KEY, name) + 1
+    lock_token = acquire_session_lock(session_id)
+    if not lock_token:
+        return jsonify({"error": "Session is busy. Retry leaderboard submission."}), 409
 
-    return jsonify({"name": name, "score": score, "position": position}), 201
+    try:
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found."}), 404
+        if not session.leaderboard_mode:
+            return jsonify({"error": "Only leaderboard mode sessions can submit scores."}), 400
+        if session.current_round <= session.max_rounds:
+            return jsonify({"error": "Game must be complete before submitting to the leaderboard."}), 409
+        if session.leaderboard_submitted:
+            return jsonify({"error": "Leaderboard score has already been submitted for this session."}), 409
+
+        score = session.total_score
+        qualifies, _ = get_leaderboard_position_for_score(score)
+        if not qualifies:
+            return jsonify({"error": "Score does not qualify for the leaderboard."}), 409
+
+        member = encode_leaderboard_member(session.session_id, name)
+        redis.zadd(LEADERBOARD_KEY, {member: score})
+        redis.zremrangebyrank(LEADERBOARD_KEY, 0, -(MAX_LEADERBOARD_SIZE + 1)) # trim lowest scores so the set stays at 50
+        rank = redis.zrevrank(LEADERBOARD_KEY, member)
+        if rank is None:
+            return jsonify({"error": "Score does not qualify for the leaderboard."}), 409
+
+        session.leaderboard_submitted = True
+        save_session(session)
+
+        position = rank + 1
+
+        return jsonify({"name": name, "score": score, "position": position}), 201
+    finally:
+        release_session_lock(session_id, lock_token)
 
 
 if __name__ == "__main__":

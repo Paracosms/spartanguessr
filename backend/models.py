@@ -18,6 +18,7 @@ class GameSession:
         self.leaderboard_mode = leaderboard_mode
         self.current_image_url = None
         self.total_score = 0
+        self.leaderboard_submitted = False
         self.created_at = datetime.now(UTC).isoformat()
 
     def to_dict(self):
@@ -32,6 +33,7 @@ class GameSession:
             "leaderboard_mode": "true" if self.leaderboard_mode else "false",
             "current_image_url": self.current_image_url or "",
             "total_score": str(self.total_score),
+            "leaderboard_submitted": "true" if self.leaderboard_submitted else "false",
             "created_at": self.created_at,
         }
 
@@ -51,6 +53,7 @@ class GameSession:
         session.current_round = int(data.get("current_round", 1))
         session.current_image_url = data.get("current_image_url") or None
         session.total_score = int(data.get("total_score", 0))
+        session.leaderboard_submitted = data.get("leaderboard_submitted", "false") == "true"
         session.created_at = data.get("created_at", datetime.now(UTC).isoformat())
         return session
 

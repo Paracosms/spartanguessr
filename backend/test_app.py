@@ -68,10 +68,23 @@ def make_session_json(**overrides):
         "leaderboard_mode": "true",
         "current_image_url": "",
         "total_score": "0",
+        "leaderboard_submitted": "false",
         "created_at": "2026-01-01T00:00:00+00:00",
     }
     base.update(overrides)
     return json.dumps(base)
+
+
+def mock_completed_leaderboard_session(mock_redis, **overrides):
+    """Configure redis.get to return a completed leaderboard-mode session."""
+    session_data = {
+        "current_round": "6",
+        "total_score": "9999",
+        "leaderboard_mode": "true",
+        "leaderboard_submitted": "false",
+    }
+    session_data.update(overrides)
+    mock_redis.get.return_value = make_session_json(**session_data)
 
 
 # ---------------------------------------------------------------------------
@@ -148,8 +161,9 @@ class TestLeaderboardCap:
     def test_add_to_leaderboard_trims_after_add(self, client, app):
         """POST /leaderboard must call zremrangebyrank to enforce the 50-entry cap."""
         _, flask_app, mock_redis = app
+        mock_completed_leaderboard_session(mock_redis)
 
-        res = client.post("/leaderboard", json={"name": "Player1", "score": 9999})
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player1"})
 
         assert res.status_code == 201
         mock_redis.zremrangebyrank.assert_called_once_with(
@@ -162,11 +176,12 @@ class TestLeaderboardCap:
         """zremrangebyrank must be called after zadd, not before."""
         _, flask_app, mock_redis = app
         call_order = []
+        mock_completed_leaderboard_session(mock_redis, total_score="5000")
 
         mock_redis.zadd.side_effect = lambda *a, **kw: call_order.append("zadd")
         mock_redis.zremrangebyrank.side_effect = lambda *a, **kw: call_order.append("zremrangebyrank")
 
-        client.post("/leaderboard", json={"name": "Player2", "score": 5000})
+        client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player2"})
 
         assert call_order == ["zadd", "zremrangebyrank"], \
             f"Expected zadd then zremrangebyrank, got: {call_order}"
@@ -175,8 +190,9 @@ class TestLeaderboardCap:
         """POST /leaderboard should return name, score, and position."""
         _, _, mock_redis = app
         mock_redis.zrevrank.return_value = 2  # 0-indexed → position 3
+        mock_completed_leaderboard_session(mock_redis, total_score="7500")
 
-        res = client.post("/leaderboard", json={"name": "Player3", "score": 7500})
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player3"})
         data = res.get_json()
 
         assert res.status_code == 201
@@ -258,13 +274,43 @@ class TestLeaderboardQualify:
 
 class TestLeaderboardValidation:
     def test_rejects_missing_name(self, client):
-        res = client.post("/leaderboard", json={"score": 5000})
+        res = client.post("/leaderboard", json={"session_id": "test-session-123"})
         assert res.status_code == 400
         assert "Name" in res.get_json()["error"]
 
-    def test_rejects_negative_score(self, client):
-        res = client.post("/leaderboard", json={"name": "Player", "score": -1})
+    def test_rejects_missing_session_id(self, client):
+        res = client.post("/leaderboard", json={"name": "Player"})
         assert res.status_code == 400
+
+    def test_rejects_client_supplied_score(self, client):
+        res = client.post("/leaderboard", json={
+            "session_id": "test-session-123",
+            "name": "Player",
+            "score": 99999,
+        })
+        assert res.status_code == 400
+        assert "server-side" in res.get_json()["error"]
+
+    def test_rejects_console_exploit_shape(self, client):
+        res = client.post("/leaderboard", json={"name": "YOUR NAME", "score": 99999})
+        assert res.status_code == 400
+        assert "server-side" in res.get_json()["error"]
+
+    def test_rejects_incomplete_game(self, client, app):
+        _, _, mock_redis = app
+        mock_completed_leaderboard_session(mock_redis, current_round="5")
+
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player"})
+
+        assert res.status_code == 409
+
+    def test_rejects_duplicate_session_submission(self, client, app):
+        _, _, mock_redis = app
+        mock_completed_leaderboard_session(mock_redis, leaderboard_submitted="true")
+
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player"})
+
+        assert res.status_code == 409
 
     def test_rejects_missing_body(self, client):
         res = client.post("/leaderboard", content_type="application/json", data="")

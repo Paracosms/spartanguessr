@@ -63,25 +63,51 @@ export default function Results() {
     }
 
     useEffect(() => {
-        const resolvedScore =
-            typeof routeState?.totalScore === "number" && Number.isFinite(routeState.totalScore)
-                ? routeState.totalScore
-                : 0;
+        let cancelled = false;
 
-        setTotalScore(resolvedScore);
-        void checkQualification(resolvedScore);
-        void fetchLeaderboard();
-    }, [routeState?.totalScore]);
+        async function loadServerScore() {
+            let resolvedScore =
+                typeof routeState?.totalScore === "number" && Number.isFinite(routeState.totalScore)
+                    ? routeState.totalScore
+                    : 0;
+
+            if (sessionId) {
+                try {
+                    const res = await fetch(`${API_URL}/session/${sessionId}/results`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (typeof data.total_score === "number" && Number.isFinite(data.total_score)) {
+                            resolvedScore = data.total_score;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch server score:", err);
+                }
+            }
+
+            if (!cancelled) {
+                setTotalScore(resolvedScore);
+                void checkQualification(resolvedScore);
+                void fetchLeaderboard();
+            }
+        }
+
+        void loadServerScore();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [routeState?.totalScore, sessionId]);
 
     async function handleSubmitName(e: React.FormEvent) {
         e.preventDefault();
-        if (!name.trim()) return;
+        if (!name.trim() || !sessionId) return;
 
         try {
             const res = await fetch(`${API_URL}/leaderboard`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name.trim(), score: totalScore }),
+                body: JSON.stringify({ session_id: sessionId, name: name.trim() }),
             });
             if (res.ok) {
                 setSubmitted(true);
@@ -142,7 +168,7 @@ export default function Results() {
                     </p>
                 </div>
 
-                {leaderboardMode && qualifies && !submitted && (
+                {leaderboardMode && sessionId && qualifies && !submitted && (
                     <div style={{
                         marginBottom: "2rem",
                         textAlign: "center",
