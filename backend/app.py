@@ -20,9 +20,10 @@ app = Flask(__name__)
 CORS(app)
 
 # setup database using environment variables
-redis_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").strip().rstrip("/")
-redis_token = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or "").strip()
-redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token else None
+#redis_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").strip().rstrip("/")
+#redis_token = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or "").strip()
+#redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token else None
+redis = Redis.from_env()
 
 LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
