@@ -1,5 +1,5 @@
 # all data is stored in Upstash Redis with simple key-value patterns.
-# session data stored as hash: session:{session_id}
+# session data stored as JSON string: session:{session_id}
 # guesses stored as list: session:{session_id}:guesses
 
 import json
@@ -39,7 +39,7 @@ class GameSession:
 
     @staticmethod
     def from_dict(data):
-        # deserialize from hash (backwards compatibility)
+        # deserialize from persisted session JSON
         if not data:
             return None
         session = GameSession(

@@ -22,7 +22,6 @@ def mock_redis():
     """Reusable mock redis object with sensible defaults."""
     r = MagicMock()
     r.get.return_value = None       # no session by default
-    r.hgetall.return_value = {}     # fallback hash also empty (load_session uses both)
     r.set.return_value = True
     r.lpush.return_value = 1
     r.expire.return_value = True
@@ -94,6 +93,29 @@ def mock_completed_leaderboard_session(mock_redis, **overrides):
     }
     session_data.update(overrides)
     mock_redis.get.return_value = make_session_json(**session_data)
+
+
+class TestLoadSession:
+    def test_load_session_returns_none_when_missing(self, app):
+        _, flask_app, mock_redis = app
+
+        assert flask_app.load_session("missing-session") is None
+        mock_redis.get.assert_called_once_with("session:missing-session")
+
+    def test_load_session_decodes_json_bytes(self, app):
+        _, flask_app, mock_redis = app
+        mock_redis.get.return_value = make_session_json(
+            session_id="json-session",
+            difficulty="medium",
+            max_rounds="3",
+        ).encode("utf-8")
+
+        session = flask_app.load_session("json-session")
+
+        assert session is not None
+        assert session.session_id == "json-session"
+        assert session.difficulty == "medium"
+        assert session.max_rounds == 3
 
 
 # ---------------------------------------------------------------------------

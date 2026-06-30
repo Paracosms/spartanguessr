@@ -113,7 +113,7 @@ def release_session_lock(session_id, lock_token):
         # lock if failed
         pass
 
-# save to redis with a 24 hour ttl so old sessions don't pile up
+# save the session JSON with the configured ttl
 def save_session(session):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
@@ -121,24 +121,19 @@ def save_session(session):
     session_json = json.dumps(session.to_dict())
     redis.set(key, session_json, ex=SESSION_TTL_SECONDS)
 
-# load from redis
+# load a session JSON blob from redis
 def load_session(session_id):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session_id}"
+    raw = redis.get(key)
+    if not raw:
+        return None
 
-    # store json string, fallback to hash if needed
-    try:
-        raw = redis.get(key)
-        if raw:
-            if isinstance(raw, (bytes, bytearray)):
-                raw = raw.decode("utf-8")
-            return GameSession.from_dict(json.loads(raw))
-    except Exception:
-        pass
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8")
 
-    data = redis.hgetall(key)
-    return GameSession.from_dict(data) if data else None
+    return GameSession.from_dict(json.loads(raw))
 
 # you can read the function name can't you?
 def save_guess(guess):
