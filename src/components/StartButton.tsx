@@ -15,7 +15,7 @@ type GameFormData = {
     leaderboard_mode: boolean;
 };
 
-const API_BASE_URL = "https://spartanguessr.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
