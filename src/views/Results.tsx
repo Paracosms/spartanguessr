@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import Background from "../assets/LeaderboardBackground.jpg";
 
-const API_URL = "https://spartanguessr.onrender.com";
+const API_BASE_URL = "https://spartanguessr-by1x.onrender.com";
 const BLUE = "#1176B9";
 const GOLD = "#FFC108";
 
@@ -39,7 +39,7 @@ export default function Results() {
 
     async function checkQualification(score: number) {
         try {
-            const res = await fetch(`${API_URL}/leaderboard/qualify?score=${score}`);
+            const res = await fetch(`${API_BASE_URL}/leaderboard/qualify?score=${score}`);
             if (res.ok) {
                 const data = await res.json();
                 setQualifies(data.qualifies);
@@ -52,7 +52,7 @@ export default function Results() {
 
     async function fetchLeaderboard() {
         try {
-            const res = await fetch(`${API_URL}/leaderboard`);
+            const res = await fetch(`${API_BASE_URL}/leaderboard`);
             if (res.ok) {
                 const data = await res.json();
                 setLeaderboard(data);
@@ -73,7 +73,7 @@ export default function Results() {
 
             if (sessionId) {
                 try {
-                    const res = await fetch(`${API_URL}/session/${sessionId}/results`);
+                    const res = await fetch(`${API_BASE_URL}/session/${sessionId}/results`);
                     if (res.ok) {
                         const data = await res.json();
                         if (typeof data.total_score === "number" && Number.isFinite(data.total_score)) {
@@ -104,7 +104,7 @@ export default function Results() {
         if (!name.trim() || !sessionId) return;
 
         try {
-            const res = await fetch(`${API_URL}/leaderboard`, {
+            const res = await fetch(`${API_BASE_URL}/leaderboard`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ session_id: sessionId, name: name.trim() }),

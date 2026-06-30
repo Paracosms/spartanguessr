@@ -32,7 +32,7 @@ type ScoreRouteState = {
 	};
 } | null;
 
-const API_BASE_URL = "https://spartanguessr.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function Score() {
 	const location = useLocation();

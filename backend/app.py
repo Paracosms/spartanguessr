@@ -17,18 +17,17 @@ from upstash_redis import Redis
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+allowed_origin = os.environ.get("ALLOWED_ORIGIN")
+CORS(app, origins=[allowed_origin, "http://localhost:5173"])
 
 # setup database using environment variables
-#redis_url = (os.environ.get("UPSTASH_REDIS_REST_URL") or "").strip().rstrip("/")
-#redis_token = (os.environ.get("UPSTASH_REDIS_REST_TOKEN") or "").strip()
-#redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token else None
 redis = Redis.from_env()
 
 LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
 SESSION_LOCK_TTL_SECONDS = 10
-SESSION_TTL_SECONDS = 60 * 60 * 24 # 24 hours, sessions expire after this
+SESSION_TTL_SECONDS = 60 * 60 # sessions expire after 1 hr
 
 IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image_map.json")
 with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:

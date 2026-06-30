@@ -1,14 +1,20 @@
 {
-  "name": "spartanguessr",
-  "compatibility_date": "2026-06-05",
-  "assets": {
-    "directory": "./dist"
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "spartanguessr",
-      "database_id": "f8a399b9-2676-4471-8b38-156c7f1ebc8d"
-    }
-  ]
+	"name": "spartanguessr",
+	"compatibility_date": "2026-06-05",
+	"assets": {
+		"directory": "./dist"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "spartanguessr",
+			"database_id": "f8a399b9-2676-4471-8b38-156c7f1ebc8d"
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "spartanguessr-images",
+			"binding": "spartanguessr_images"
+		}
+	]
 }

@@ -17,7 +17,7 @@ type GameRouteState = {
     leaderboardMode?: boolean;
 } | null;
 
-const API_BASE_URL = "https://spartanguessr.onrender.com";
+const API_BASE_URL = "https://spartanguessr-by1x.onrender.com";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -169,7 +169,7 @@ export default function Game() {
         <>
 
             {roundImageUrl && (    
-                <img src={`https://spartanguessr.onrender.com${roundImageUrl}`}
+                <img src={`${API_BASE_URL}${roundImageUrl}`}
                     draggable={false}
                     style={{
                         width: "100vw",
