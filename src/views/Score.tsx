@@ -1,36 +1,7 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
-
-type Point = { x: number; y: number };
-
-type ApiDifficulty = "easy" | "medium" | "hard";
-
-type GameRouteState = {
-	sessionId?: string;
-	roundCount?: number;
-	difficulty?: ApiDifficulty;
-    unlabled?: boolean;
-	outsideOnly?: boolean;
-	timerLength?: string;
-	seed?: string;
-	leaderboardMode?: boolean;
-};
-
-type ScoreRouteState = {
-	guess_pos?: Point;
-	actual_pos?: Point;
-	image_url?: string;
-	round_score?: number;
-	round_number?: number;
-	gameState?: GameRouteState;
-	is_game_complete?: boolean;
-	resultsState?: {
-		totalScore?: number;
-		sessionId?: string;
-		leaderboardMode?: boolean;
-	};
-} | null;
+import type { ScoreRouteState } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -45,7 +16,7 @@ export default function Score() {
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
 
-    const unlabeled = routeState?.gameState?.unlabled ?? false;
+    const unlabeled = routeState?.gameState?.unlabeledMap ?? false;
 
 	useEffect(() => {
 		if (!guessPos || !actualPos || !imageUrl || (!gameState && !isGameComplete)) {
@@ -144,6 +115,7 @@ export default function Score() {
 		</main>
 	);
 }
+
 
 
 

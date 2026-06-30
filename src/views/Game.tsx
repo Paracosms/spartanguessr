@@ -2,22 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
 import { useLocation } from "react-router-dom";
+import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 
-type Point = { x: number; y: number };
-type ApiDifficulty = "easy" | "medium" | "hard";
-
-type GameRouteState = {
-    sessionId?: string;
-    roundCount?: number;
-    difficulty?: ApiDifficulty;
-    unlabeledMap?: boolean;
-    outsideOnly?: boolean;
-    timerLength?: string;
-    seed?: string;
-    leaderboardMode?: boolean;
-} | null;
-
-const API_BASE_URL = "https://spartanguessr-by1x.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -59,6 +46,7 @@ export default function Game() {
         roundCount: maxRounds,
         difficulty,
         outsideOnly,
+        unlabeledMap,
         timerLength,
         seed,
         leaderboardMode,

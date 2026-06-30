@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import mapLabeled from "../assets/MapLabeled.jpg";
 import mapUnlabeled from "../assets/MapUnlabeled.jpg";
 import pin from "../assets/Pin.png";
-type Point = { x: number; y: number };
+import type { Point } from "../utils/types";
 type ViewState = { scale: number; offset: Point };
 type MinimapProps = {
     pinPosition: Point | null;

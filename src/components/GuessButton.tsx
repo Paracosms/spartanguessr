@@ -1,20 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { GameRouteState, Point } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-type Point = { x: number; y: number };
-type ApiDifficulty = "easy" | "medium" | "hard";
-
-type GameRouteState = {
-    sessionId?: string;
-    roundCount?: number;
-    difficulty?: ApiDifficulty;
-    outsideOnly?: boolean;
-    timerLength?: string;
-    seed?: string;
-    leaderboardMode?: boolean;
-};
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -108,8 +96,8 @@ export default function GuessButton({
                     resultsState: gameComplete
                         ? {
                             totalScore: result.total_score,
-                            sessionId: gameState.sessionId,
-                            leaderboardMode: gameState.leaderboardMode,
+                            sessionId: gameState?.sessionId,
+                            leaderboardMode: gameState?.leaderboardMode,
                         }
                         : undefined,
                 },
