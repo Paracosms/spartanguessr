@@ -33,21 +33,6 @@ IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image
 with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:
     image_map = json.load(f)
 
-# convert image_map into an array of all image urls
-def flatten_image_urls(map_data):
-    return {
-        image_url
-        for difficulty_group in map_data.values()
-        for location_group in difficulty_group.values()
-        for image_url in location_group.values()
-    }
-KNOWN_IMAGE_URLS = flatten_image_urls(image_map)
-
-# helper function to get a list of available image_ids for a difficulty/location
-# e.g. calling get_available_image_ids("medium", "inside") returns ["1", "2", "3", ...] based on image_map.json
-def get_available_image_ids(difficulty, location):
-    return list(image_map.get(difficulty, {}).get(location, {}).keys())
-
 # random 64 character string for session id to prevent guessing and collisions
 def generate_session_id():
     return secrets.token_hex(32)
@@ -272,91 +257,49 @@ def health():
 @app.route("/random-image")
 def random_image():
     session_id = request.args.get("session_id", type=str)
+    if not session_id:
+        return jsonify({"error": "session_id is required."}), 400
 
-    if session_id is not None:
-        lock_token = acquire_session_lock(session_id)
-        if not lock_token:
-            return jsonify({"error": "Session is busy. Retry request."}), 409
+    lock_token = acquire_session_lock(session_id)
+    if not lock_token:
+        return jsonify({"error": "Session is busy. Retry request."}), 409
 
-        try:
-            session = load_session(session_id)
-            if not session:
-                return jsonify({"error": "Session not found."}), 404
+    try:
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found."}), 404
 
-            if session.current_round > session.max_rounds:
-                return jsonify({
-                    "completed": True,
-                    "round_number": session.current_round,
-                    "max_rounds": session.max_rounds,
-                }), 200
-
-            if session.current_image_url:
-                return jsonify({
-                    "difficulty": get_round_difficulty(session.difficulty, session.max_rounds, session.current_round),
-                    "round_number": session.current_round,
-                    "image_url": session.current_image_url,
-                    "seed": session.seed,
-                }), 200
-
-            round_image = build_round_image(session)
-            if not round_image:
-                return jsonify({"error": "No image found"}), 404
-
-            session.current_image_url = round_image["image_path"]
-            save_session(session)
-
+        if session.current_round > session.max_rounds:
             return jsonify({
-                "difficulty": round_image["difficulty"],
-                "location": round_image["location"],
-                "image_url": round_image["image_path"],
+                "completed": True,
                 "round_number": session.current_round,
+                "max_rounds": session.max_rounds,
+            }), 200
+
+        if session.current_image_url:
+            return jsonify({
+                "difficulty": get_round_difficulty(session.difficulty, session.max_rounds, session.current_round),
+                "round_number": session.current_round,
+                "image_url": session.current_image_url,
                 "seed": session.seed,
             }), 200
-        finally:
-            release_session_lock(session_id, lock_token)
 
-    difficulty = request.args.get("difficulty")
-    outside_only = request.args.get("outside_only", "false").lower() == "true"
-    seed = request.args.get("seed")
-    
-    rng = random.Random(seed)
-
-    difficulty_bucket = image_map.get(difficulty, {})
-    if outside_only:
-        location = "outside"
-        location_bucket = difficulty_bucket.get(location, {})
-    else:
-        available_locations = [
-            location_name
-            for location_name in ("inside", "outside")
-            if difficulty_bucket.get(location_name)
-        ]
-        if not available_locations:
+        round_image = build_round_image(session)
+        if not round_image:
             return jsonify({"error": "No image found"}), 404
-        location = rng.choice(available_locations)
-        location_bucket = difficulty_bucket.get(location, {})
 
-    if not location_bucket:
-        return jsonify({"error": "No image found"}), 404
+        session.current_image_url = round_image["image_path"]
+        save_session(session)
 
-    available_image_ids = list(location_bucket.keys())
-    if not available_image_ids:
-        return jsonify({"error": "No image found"}), 404
-
-    # pick a random image_id
-    image_id = str(rng.randint(1, len(available_image_ids)))
-    if image_id not in location_bucket:
-        image_id = rng.choice(available_image_ids)
-
-    image_path = build_image_path(difficulty, location, image_id)
-
-    return jsonify({
-        "difficulty": difficulty,
-        "location": location,
-        "image_id": image_id,
-        "image_url": image_path,
-        "seed": seed
-    }), 200
+        return jsonify({
+            "difficulty": round_image["difficulty"],
+            "location": round_image["location"],
+            "image_url": round_image["image_path"],
+            "round_number": session.current_round,
+            "seed": session.seed,
+        }), 200
+    finally:
+        release_session_lock(session_id, lock_token)
     
 #GET/image/<difficulty>/<location>/<image_id>
 #Get image url the convert it to send to frontend
@@ -383,7 +326,7 @@ def create_session():
 
     leaderboard_mode = parse_bool(data.get("leaderboard_mode", False), default=False)
     difficulty = data.get("difficulty", "medium")
-    max_rounds = data.get("max_rounds", data.get("round_count", 5))
+    max_rounds = data.get("max_rounds", 5)
     outside_only = parse_bool(data.get("outside_only", False), default=False)
     seed = str(data.get("seed", "")).strip()
 

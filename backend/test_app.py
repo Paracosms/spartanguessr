@@ -6,8 +6,11 @@ Run with: pytest test_app.py -v
 """
 
 import json
+import importlib
+import os
+import sys
 import pytest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +41,16 @@ def mock_redis():
 @pytest.fixture
 def app(mock_redis):
     """Create a test Flask app with Redis patched."""
-    with patch("app.redis", mock_redis), \
-         patch("app.acquire_session_lock", return_value="lock-token"), \
-         patch("app.release_session_lock", return_value=None):
-        import app as flask_app
+    with patch.dict(os.environ, {
+        "UPSTASH_REDIS_REST_URL": "https://example.com",
+        "UPSTASH_REDIS_REST_TOKEN": "test-token",
+        "ALLOWED_ORIGIN": "http://localhost:5173",
+    }, clear=False):
+        sys.modules.pop("app", None)
+        flask_app = importlib.import_module("app")
+        flask_app.redis = mock_redis
+        flask_app.acquire_session_lock = MagicMock(return_value="lock-token")
+        flask_app.release_session_lock = MagicMock(return_value=None)
         flask_app.app.config["TESTING"] = True
         yield flask_app.app, flask_app, mock_redis
 
@@ -114,9 +123,9 @@ class TestSessionTTL:
         assert kwargs["ex"] == flask_app.SESSION_TTL_SECONDS
 
     def test_session_ttl_value_is_24_hours(self, app):
-        """SESSION_TTL_SECONDS should be exactly 86400 (24 hours)."""
+        """SESSION_TTL_SECONDS should be exactly 3600 (1 hour)."""
         _, flask_app, _ = app
-        assert flask_app.SESSION_TTL_SECONDS == 86400
+        assert flask_app.SESSION_TTL_SECONDS == 3600
 
 
 # ---------------------------------------------------------------------------
@@ -354,3 +363,11 @@ class TestSessionCreation:
     def test_invalid_difficulty_rejected(self, client):
         res = client.post("/session", json={"difficulty": "insane", "max_rounds": 5})
         assert res.status_code == 400
+
+
+class TestRandomImage:
+    def test_random_image_requires_session_id(self, client):
+        res = client.get("/random-image")
+
+        assert res.status_code == 400
+        assert res.get_json()["error"] == "session_id is required."

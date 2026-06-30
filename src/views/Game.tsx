@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -24,6 +24,7 @@ export default function Game() {
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
     const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
     const location = useLocation();
+    const navigate = useNavigate();
 
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
@@ -64,16 +65,15 @@ export default function Game() {
 
     // receive image url
     const loadRandomImage = useCallback(async () => {
+        if (!sessionId) {
+            navigate("/", { replace: true });
+            return;
+        }
+
         try {
             setRoundImageUrl(null);
             const params = new URLSearchParams();
-
-            if (sessionId != null) {
-                params.set("session_id", String(sessionId));
-            } else {
-                params.set("difficulty", difficulty);
-                params.set("outside_only", outsideOnly ? "true" : "false");
-            }
+            params.set("session_id", sessionId);
 
             if (seed) {
                 params.set("seed", seed);
@@ -81,6 +81,10 @@ export default function Game() {
 
             const randomImageRes = await fetch(`${API_BASE_URL}/random-image?${params.toString()}`);
             if (!randomImageRes.ok) {
+                if (randomImageRes.status === 404) {
+                    navigate("/", { replace: true });
+                    return;
+                }
                 console.error("FAIL", `Unable to get random image: ${randomImageRes.status}`);
                 return;
             }
@@ -106,9 +110,14 @@ export default function Game() {
         } catch (err) {
             console.error("FAIL", err);
         }
-    }, [difficulty, outsideOnly, roundTimerSeconds, seed, sessionId]);
+    }, [navigate, roundTimerSeconds, seed, sessionId]);
 
     useEffect(() => {
+        if (!sessionId) {
+            navigate("/", { replace: true });
+            return;
+        }
+
         const timeoutId = window.setTimeout(() => {
             void loadRandomImage();
         }, 0);
@@ -116,7 +125,7 @@ export default function Game() {
         return () => {
             window.clearTimeout(timeoutId);
         };
-    }, [loadRandomImage]);
+    }, [loadRandomImage, navigate, sessionId]);
 
     useEffect(() => {
         if (roundTimerSeconds == null || !roundImageUrl) {
