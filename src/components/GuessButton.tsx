@@ -11,7 +11,6 @@ type GuessButtonProps = {
     max_rounds: number;
     coordinates: Point | null;
     gameState: GameRouteState;
-    onGameComplete?: (finalScore: number) => void;
     seed: string;
     autoSubmitSignal?: number;
 };

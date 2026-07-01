@@ -4,13 +4,6 @@
 	"assets": {
 		"directory": "./dist"
 	},
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "spartanguessr",
-			"database_id": "f8a399b9-2676-4471-8b38-156c7f1ebc8d"
-		}
-	],
 	"r2_buckets": [
 		{
 			"bucket_name": "spartanguessr-images",

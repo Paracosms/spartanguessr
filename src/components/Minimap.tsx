@@ -9,13 +9,11 @@ type MinimapProps = {
     onPinChange: (point: Point) => void;
     unlabeled: boolean;
     allowPinPlacement?: boolean;
-    mapHeightVh?: number;
     mapHeightPx?: number;
     initialScale?: number;
     initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
     cssScale?: number; // scale of the wrapper div, used to correct pin placement math
     minZoomFloor?: number;
-    minZoomMode?: "legacy" | "fit";
     initializeScaleToMinZoom?: boolean;
     actualPosition?: Point | null;
     showActualDot?: boolean;
@@ -28,16 +26,12 @@ declare global {
 
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
-const MAP_HEIGHT = 40; // -> 40vh
 const PIN_SIZE_PX = 30;
 const INITIAL_SCALE = 1; // prod = 1.0
 const ZOOM_SPEED = 0.05;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
-const BASE_MIN_ZOOM = 0.20;  // this should scale based on MAP_HEIGHT
-// The scale that encompasses the entire map on a MIN_ZOOM_REFERENCE_HEIGHT px display
-const MIN_ZOOM_REFERENCE_HEIGHT = 1080;
-const MAX_DYNAMIC_MIN_ZOOM = 0.45;
+const BASE_MIN_ZOOM = 0.20;
 const MAX_ZOOM = 2;
 const FIT_ZOOM_PADDING = 0.98;
 
@@ -51,13 +45,11 @@ export default function Minimap({
     onPinChange,
     unlabeled,
     allowPinPlacement = true,
-    mapHeightVh = MAP_HEIGHT,
     mapHeightPx,
     initialScale = INITIAL_SCALE,
     initialOffset = INITIAL_MAP_POS,
     cssScale = 1,
     minZoomFloor,
-    minZoomMode = "legacy",
     initializeScaleToMinZoom = false,
     actualPosition = null,
     showActualDot = false,
@@ -221,12 +213,9 @@ export default function Minimap({
             const width = container.clientWidth;
             const height = container.clientHeight;
             if (width <= 0 || height <= 0) return;
-            const dynamicMinZoom =
-                minZoomMode === "fit"
-                    ? getFitMinZoom(width, height)
-                    : getMinZoom(height, mapHeightVh, mapHeightPx);
-            const nextMinZoom =
-                minZoomFloor != null ? Math.max(dynamicMinZoom, minZoomFloor) : dynamicMinZoom;
+            const nextMinZoom = minZoomFloor != null
+                ? Math.max(getFitMinZoom(width, height), minZoomFloor)
+                : getFitMinZoom(width, height);
             setMinZoom(nextMinZoom);
 
             setView((prev) => {
@@ -244,7 +233,7 @@ export default function Minimap({
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, [mapHeightPx, mapHeightVh, minZoomFloor, minZoomMode, initializeScaleToMinZoom]);
+    }, [minZoomFloor, initializeScaleToMinZoom]);
 
     // Allows `debug = true/false` in the browser console to toggle debug UI
     useEffect(() => {
@@ -305,7 +294,7 @@ export default function Minimap({
         onClick={allowPinPlacement ? handleClick : undefined}
         className="rounded shadow border border-5 border-warning"
         style={{
-            height: mapHeightPx != null ? `${mapHeightPx}px` : `${mapHeightVh}vh`,
+            height: mapHeightPx != null ? `${mapHeightPx}px` : "40vh",
             aspectRatio: `${ASPECT_RATIO}`,
             position: "relative",
             overflow: "hidden",
@@ -370,18 +359,6 @@ export default function Minimap({
 function round(value: number, decimal_places: number): number {
     const multiplier: number = Math.pow(10, decimal_places || 0);
     return Math.round(value * multiplier) / multiplier;
-}
-
-// fix for 1080p+ monitors
-function getMinZoom(containerHeight: number, mapHeightVh: number, mapHeightPx?: number): number {
-    const referenceContainerHeight = mapHeightPx ?? (MIN_ZOOM_REFERENCE_HEIGHT * mapHeightVh) / 100;
-    const scaledMinZoom = BASE_MIN_ZOOM * (containerHeight / referenceContainerHeight); // should be 0.35 at 1080p, 1440p 4k
-    const clampedMinZoom = clamp(scaledMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM);
-
-    const baseSteps = Math.ceil(clampedMinZoom / ZOOM_SPEED);
-    const extraStepBias = containerHeight > referenceContainerHeight ? 1 : 0;
-    const quantizedMinZoom = (baseSteps + extraStepBias) * ZOOM_SPEED;
-    return round(clamp(quantizedMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM), 2);
 }
 
 function getFitMinZoom(containerWidth: number, containerHeight: number): number {

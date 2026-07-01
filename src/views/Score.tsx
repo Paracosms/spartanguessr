@@ -1,9 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 import type { ScoreRouteState } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const SCORE_MINIMAP_HEIGHT_VH = 0.80;
+
+function computeMinimapHeight() {
+	return Math.round(window.innerHeight * SCORE_MINIMAP_HEIGHT_VH);
+}
 
 export default function Score() {
 	const location = useLocation();
@@ -15,6 +20,7 @@ export default function Score() {
 	const gameState = routeState?.gameState;
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
+	const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
 
     const unlabeled = routeState?.gameState?.unlabeledMap ?? false;
 
@@ -23,6 +29,15 @@ export default function Score() {
 			navigate("/game", { replace: true });
 		}
 	}, [actualPos, gameState, guessPos, imageUrl, isGameComplete, navigate]);
+
+	useEffect(() => {
+		function handleResize() {
+			setMinimapHeightPx(computeMinimapHeight());
+		}
+
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, []);
 
 	if (!guessPos || !actualPos || !imageUrl || (!gameState && !isGameComplete)) {
 		return null;
@@ -89,9 +104,8 @@ export default function Score() {
 					pinPosition={guessPos}
 					onPinChange={() => {}}
 					allowPinPlacement={false}
-					mapHeightVh={80}
+					mapHeightPx={minimapHeightPx}
                     unlabeled={unlabeled}
-					minZoomMode="fit"
 					initializeScaleToMinZoom
 					actualPosition={actualPos}
 					showActualDot

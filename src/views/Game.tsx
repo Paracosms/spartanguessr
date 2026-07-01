@@ -201,7 +201,6 @@ export default function Game() {
                             unlabeled={unlabeledMap}
                             onPinChange={setPinPosition}
                             mapHeightPx={minimapHeightPx}
-                            minZoomMode="fit"
                             initialScale={GAME_MINIMAP_INITIAL_SCALE}
                             initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
                             cssScale={minimapHovered ? 1.2 : 0.7}
@@ -217,7 +216,6 @@ export default function Game() {
                             max_rounds={maxRounds}
                             coordinates={pinPosition}
                             gameState={gameNavigationState}
-                            onGameComplete={() => {}}
                             seed={seed}
                             autoSubmitSignal={autoSubmitSignal}
                         />
