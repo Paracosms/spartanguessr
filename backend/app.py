@@ -276,7 +276,6 @@ def random_image():
                 "difficulty": get_round_difficulty(session.difficulty, session.max_rounds, session.current_round),
                 "round_number": session.current_round,
                 "image_url": session.current_image_url,
-                "seed": session.seed,
             }), 200
 
         round_image = build_round_image(session)
@@ -291,7 +290,6 @@ def random_image():
             "location": round_image["location"],
             "image_url": round_image["image_path"],
             "round_number": session.current_round,
-            "seed": session.seed,
         }), 200
     finally:
         release_session_lock(session_id, lock_token)
@@ -476,7 +474,6 @@ def submit_guess():
             guess_lng,
             distance_meters,
             score,
-            data.get("seed") or session.seed,
         )
         save_guess(guess)
 

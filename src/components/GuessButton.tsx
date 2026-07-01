@@ -11,7 +11,6 @@ type GuessButtonProps = {
     max_rounds: number;
     coordinates: Point | null;
     gameState: GameRouteState;
-    seed: string;
     autoSubmitSignal?: number;
 };
 
@@ -22,7 +21,6 @@ export default function GuessButton({
     max_rounds,
     coordinates,
     gameState,
-    seed,
     autoSubmitSignal = 0,
 }: GuessButtonProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,7 +50,6 @@ export default function GuessButton({
             round_number,
             guess_latitude: coordinatesToSubmit.x,
             guess_longitude: coordinatesToSubmit.y,
-            seed,
         };
 
         console.log(guess_packet);
@@ -106,7 +103,7 @@ export default function GuessButton({
         } finally {
             setIsSubmitting(false);
         }
-    }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, seed, session_id]);
+    }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, session_id]);
 
     useEffect(() => {
         if (autoSubmitSignal <= lastAutoSubmitSignal.current) {

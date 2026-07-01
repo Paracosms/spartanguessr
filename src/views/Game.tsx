@@ -75,10 +75,6 @@ export default function Game() {
             const params = new URLSearchParams();
             params.set("session_id", sessionId);
 
-            if (seed) {
-                params.set("seed", seed);
-            }
-
             const randomImageRes = await fetch(`${API_BASE_URL}/random-image?${params.toString()}`);
             if (!randomImageRes.ok) {
                 if (randomImageRes.status === 404) {
@@ -110,7 +106,7 @@ export default function Game() {
         } catch (err) {
             console.error("FAIL", err);
         }
-    }, [navigate, roundTimerSeconds, seed, sessionId]);
+    }, [navigate, roundTimerSeconds, sessionId]);
 
     useEffect(() => {
         if (!sessionId) {
@@ -216,7 +212,6 @@ export default function Game() {
                             max_rounds={maxRounds}
                             coordinates={pinPosition}
                             gameState={gameNavigationState}
-                            seed={seed}
                             autoSubmitSignal={autoSubmitSignal}
                         />
                     </div>

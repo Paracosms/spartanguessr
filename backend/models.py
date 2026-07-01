@@ -60,7 +60,7 @@ class GameSession:
 
 class Guess:
     # guess properties
-    def __init__(self, session_id, image_url, round_number, guess_latitude, guess_longitude, distance_meters, score, seed=None):
+    def __init__(self, session_id, image_url, round_number, guess_latitude, guess_longitude, distance_meters, score):
         self.session_id = session_id
         self.image_url = image_url
         self.round_number = round_number
@@ -68,7 +68,6 @@ class Guess:
         self.guess_longitude = guess_longitude
         self.distance_meters = distance_meters
         self.score = score
-        self.seed = seed
 
     # serialize to json
     def to_json(self):
@@ -80,7 +79,6 @@ class Guess:
             "guess_longitude": self.guess_longitude,
             "distance_meters": self.distance_meters,
             "score": self.score,
-            "seed": self.seed,
         })
 
     @staticmethod
@@ -95,5 +93,4 @@ class Guess:
             data["guess_longitude"],
             data["distance_meters"],
             data["score"],
-            data.get("seed"),
         )

@@ -2,7 +2,7 @@
 Tests for SpartanGuessr backend.
 Uses Flask's test client with Redis mocked out so no live Upstash connection is needed.
 
-Run with: pytest test_app.py -v
+Run with: pytest tests.py -v
 """
 
 import json
@@ -160,7 +160,7 @@ class TestGuessTTL:
         _, flask_app, mock_redis = app
         from models import Guess
 
-        guess = Guess("sess-1", "/image/hard/outside/1", 1, 10.0, 20.0, 100.0, 4500, "seed")
+        guess = Guess("sess-1", "/image/hard/outside/1", 1, 10.0, 20.0, 100.0, 4500)
 
         with patch("app.redis", mock_redis):
             flask_app.save_guess(guess)
@@ -175,7 +175,7 @@ class TestGuessTTL:
         _, flask_app, mock_redis = app
         from models import Guess
 
-        guess = Guess("sess-2", "/image/hard/outside/1", 1, 10.0, 20.0, 100.0, 4500, "seed")
+        guess = Guess("sess-2", "/image/hard/outside/1", 1, 10.0, 20.0, 100.0, 4500)
 
         with patch("app.redis", mock_redis):
             flask_app.save_guess(guess)
@@ -393,3 +393,54 @@ class TestRandomImage:
 
         assert res.status_code == 400
         assert res.get_json()["error"] == "session_id is required."
+
+    def test_random_image_returns_existing_round_image(self, client, app):
+        _, _, mock_redis = app
+        mock_redis.get.return_value = make_session_json(
+            seed="stable-seed",
+            current_image_url="/image/hard/outside/1",
+        )
+
+        res = client.get("/random-image?session_id=test-session-123")
+        data = res.get_json()
+
+        assert res.status_code == 200
+        assert data["image_url"] == "/image/hard/outside/1"
+
+
+class TestSeedStability:
+    def test_guess_ignores_client_seed_override_and_keeps_session_seed_stable(self, client, app):
+        _, flask_app, mock_redis = app
+        session = flask_app.GameSession(
+            "test-session-123",
+            "hard",
+            5,
+            False,
+            seed="stable-seed",
+            leaderboard_mode=True,
+        )
+        session.current_image_url = "/image/hard/outside/1"
+        session.current_round = 1
+
+        saved_guesses = []
+
+        def capture_guess(guess):
+            saved_guesses.append(guess)
+
+        with patch("app.load_session", return_value=session), \
+             patch("app.save_session"), \
+             patch("app.save_guess", side_effect=capture_guess), \
+             patch("app.get_image_url_from_map", return_value="https://example.com/(10,20).jpg"):
+            res = client.post("/guess", json={
+                "session_id": "test-session-123",
+                "image_url": "/image/hard/outside/1",
+                "round_number": 1,
+                "guess_latitude": 12.0,
+                "guess_longitude": 34.0,
+                "seed": "client-override-seed",
+            })
+
+        assert res.status_code == 200
+        assert len(saved_guesses) == 1
+        assert session.seed == "stable-seed"
+        assert not hasattr(saved_guesses[0], "seed")
