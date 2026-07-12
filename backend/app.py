@@ -5,6 +5,7 @@ import json
 import re
 import uuid
 import secrets
+import time
 import requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
@@ -28,6 +29,9 @@ LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
 SESSION_LOCK_TTL_SECONDS = 10
 SESSION_TTL_SECONDS = 60 * 60 # sessions expire after 1 hr
+RATE_LIMIT_SECONDS = 1
+RATE_LIMIT_REQUESTS = 5
+# rate limit: RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS per IP address (e.g. 5 requests per second per IP)
 
 IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image_map.json")
 with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:
@@ -46,6 +50,29 @@ def parse_bool(value, default=False):
     if isinstance(value, (int, float)):
         return value != 0
     return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+def is_rate_limited():
+    """Allow up to RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS for each IP."""
+    client_ip = request.remote_addr or "unknown"
+    window = int(time.time() // RATE_LIMIT_SECONDS)
+    key = f"rate-limit:{client_ip}:{window}"
+
+    try:
+        request_count = int(redis.incr(key))
+        if request_count == 1:
+            redis.expire(key, RATE_LIMIT_SECONDS + 1)
+    except Exception:
+        # A limiter outage should not make the game unavailable. The Redis-backed
+        # session operations below still fail normally when Redis is unavailable.
+        app.logger.exception("Rate limiter unavailable")
+        return False
+
+    return request_count > RATE_LIMIT_REQUESTS
+
+@app.before_request
+def enforce_rate_limit():
+    if is_rate_limited():
+        return jsonify({"error": "Rate limit exceeded. Try again shortly."}), 429
 
 def encode_leaderboard_member(session_id, name):
     return json.dumps({
@@ -330,8 +357,8 @@ def create_session():
 
     if difficulty not in ("easy", "medium", "hard"):
         return jsonify({"error": "Invalid difficulty."}), 400
-    if not isinstance(max_rounds, int) or max_rounds < 1:
-        return jsonify({"error": "max_rounds must be a positive integer."}), 400
+    if not isinstance(max_rounds, int) or not (1 <= max_rounds <= 10):
+        return jsonify({"error": "max_rounds must be an integer within the expected range."}), 400
 
     try:
         session_id = None

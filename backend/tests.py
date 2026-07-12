@@ -23,6 +23,7 @@ def mock_redis():
     r = MagicMock()
     r.get.return_value = None       # no session by default
     r.set.return_value = True
+    r.incr.return_value = 1
     r.lpush.return_value = 1
     r.expire.return_value = True
     r.lrange.return_value = []
@@ -406,6 +407,38 @@ class TestRandomImage:
 
         assert res.status_code == 200
         assert data["image_url"] == "/image/hard/outside/1"
+
+
+class TestImageRateLimit:
+    def test_rejects_second_request_from_same_ip_within_one_second(self, client, app):
+        _, flask_app, mock_redis = app
+        mock_redis.incr.side_effect = [1, 6]
+
+        with patch.dict(flask_app.image_map, {
+            "hard": {"outside": {"1": "https://example.com/image.jpg"}},
+        }, clear=True), patch("app.requests.get") as get:
+            get.return_value.content = b"image"
+
+            first = client.get("/image/hard/outside/1")
+            second = client.get("/image/hard/outside/1")
+
+        assert first.status_code == 200
+        assert second.status_code == 429
+        assert mock_redis.incr.call_count == 2
+
+
+class TestRateLimit:
+    def test_all_requests_limit_each_ip(self, client, app):
+        _, flask_app, mock_redis = app
+        mock_redis.incr.side_effect = [1, 2, 3, 4, 5, 6]
+
+        responses = [
+            client.get("/health", environ_base={"REMOTE_ADDR": "192.0.2.10"})
+            for _ in range(flask_app.RATE_LIMIT_REQUESTS + 1)
+        ]
+
+        assert [response.status_code for response in responses] == [200] * 5 + [429]
+        assert mock_redis.incr.call_count == flask_app.RATE_LIMIT_REQUESTS + 1
 
 
 class TestSeedStability:
