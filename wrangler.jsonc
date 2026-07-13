@@ -3,11 +3,5 @@
 	"compatibility_date": "2026-06-05",
 	"assets": {
 		"directory": "./dist"
-	},
-	"r2_buckets": [
-		{
-			"bucket_name": "spartanguessr-images",
-			"binding": "spartanguessr_images"
-		}
-	]
+	}
 }

@@ -1,18 +1,16 @@
 import os
-import io
 import random
 import json
-import re
 import uuid
 import secrets
 import time
-import requests
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 from roundTracking import get_round_difficulty
 from score_algorithm import score_algorithm
 from models import GameSession, Guess
+from image_catalog import load_image_catalog
 from upstash_redis import Redis
 
 load_dotenv()
@@ -33,9 +31,12 @@ RATE_LIMIT_SECONDS = 1
 RATE_LIMIT_REQUESTS = 5
 # rate limit: RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS per IP address (e.g. 5 requests per second per IP)
 
-IMAGE_MAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "image_map.json")
-with open(IMAGE_MAP_PATH, "r", encoding="utf-8") as f:
-    image_map = json.load(f)
+IMAGE_CATALOG_PATH = os.environ.get("IMAGE_CATALOG_PATH")
+IMAGE_CDN_BASE_URL = os.environ.get("IMAGE_CDN_BASE_URL", "").rstrip("/")
+if not IMAGE_CDN_BASE_URL:
+    raise RuntimeError("IMAGE_CDN_BASE_URL is required.")
+image_by_id, image_ids_by_bucket = load_image_catalog(IMAGE_CATALOG_PATH)
+app.logger.info("Validated private image catalog with %d records", len(image_by_id))
 
 # random 64 character string for session id to prevent guessing and collisions
 def generate_session_id():
@@ -174,29 +175,15 @@ def load_guesses(session_id):
     guess_jsons = redis.lrange(key, 0, -1)
     return [Guess.from_json(g) for g in reversed(guess_jsons)]
 
-# build relative image path
-def build_image_path(difficulty, location, image_id):
-    return f"/image/{difficulty}/{location}/{image_id}"
-
-# get actual url from image_map using difficulty, location, image_id
-def get_image_url_from_map(difficulty, location, image_id):
-    return image_map.get(difficulty, {}).get(location, {}).get(str(image_id))
-
-# convert (x,y).JPG to x, y
-def resolve_coordinates_from_image_url(image_url):
-
-    match = re.search(r"\((\d+),(\d+)\)", image_url)
-    if not match:
-        return None
-
-    return float(match.group(1)), float(match.group(2))
+def build_image_url(image_id):
+    return f"{IMAGE_CDN_BASE_URL}/{image_by_id[image_id]['object_key']}"
 
 # selects inside/outside based on difficulty and seed
 def select_round_location(image_difficulty, outside_only, rng):
     available_locations = [
         location
         for location in ("inside", "outside")
-        if image_map.get(image_difficulty, {}).get(location)
+        if image_ids_by_bucket[image_difficulty][location]
     ]
     if not available_locations:
         return None
@@ -220,54 +207,15 @@ def build_round_image(session):
         return None
 
     guesses = load_guesses(session.session_id)
-    used_image_paths = {guess.image_url for guess in guesses}
-
-    difficulty_bucket = image_map.get(round_difficulty, {})
-    location_bucket = difficulty_bucket.get(location, {})
-    available_image_ids = list(location_bucket.keys())
+    used_image_ids = {guess.image_id for guess in guesses}
+    available_image_ids = image_ids_by_bucket[round_difficulty][location]
 
     if not available_image_ids:
         return None
 
-    # pick a random image_id that hasn't been used yet
-    max_attempts = len(available_image_ids) * 2
-    attempts = 0
-    image_id = None
-
-    while attempts < max_attempts:
-        image_id = str(rng.randint(1, len(available_image_ids)))
-        image_path = build_image_path(round_difficulty, location, image_id)
-        if image_id in location_bucket and image_path not in used_image_paths:
-            return {
-                "difficulty": round_difficulty,
-                "location": location,
-                "image_path": image_path,
-                "image_id": image_id,
-            }
-        attempts += 1
-
-    # fallback: just pick the first available unused image
-    for img_id in available_image_ids:
-        image_path = build_image_path(round_difficulty, location, img_id)
-        if image_path not in used_image_paths:
-            return {
-                "difficulty": round_difficulty,
-                "location": location,
-                "image_path": image_path,
-                "image_id": img_id,
-            }
-
-    # fallback: return any available image (all have been used)
-    if available_image_ids:
-        img_id = available_image_ids[0]
-        return {
-            "difficulty": round_difficulty,
-            "location": location,
-            "image_path": build_image_path(round_difficulty, location, img_id),
-            "image_id": img_id,
-        }
-
-    return None
+    unused_image_ids = [image_id for image_id in available_image_ids if image_id not in used_image_ids]
+    image_id = rng.choice(unused_image_ids or available_image_ids)
+    return {"difficulty": round_difficulty, "location": location, "image_id": image_id}
 
 # health check
 @app.route("/health")
@@ -275,7 +223,7 @@ def health():
     return jsonify({"status": "ok"}), 200
 
 #GET /random-image
-#Get data from frontend to fetch a random image from image_map
+# Get the active round's direct CDN image URL.
 @app.route("/random-image")
 def random_image():
     session_id = request.args.get("session_id", type=str)
@@ -298,43 +246,29 @@ def random_image():
                 "max_rounds": session.max_rounds,
             }), 200
 
-        if session.current_image_url:
+        if session.current_image_id:
             return jsonify({
                 "difficulty": get_round_difficulty(session.difficulty, session.max_rounds, session.current_round),
                 "round_number": session.current_round,
-                "image_url": session.current_image_url,
+                "image_url": build_image_url(session.current_image_id),
             }), 200
 
         round_image = build_round_image(session)
         if not round_image:
             return jsonify({"error": "No image found"}), 404
 
-        session.current_image_url = round_image["image_path"]
+        session.current_image_id = round_image["image_id"]
         save_session(session)
 
         return jsonify({
             "difficulty": round_image["difficulty"],
             "location": round_image["location"],
-            "image_url": round_image["image_path"],
+            "image_url": build_image_url(round_image["image_id"]),
             "round_number": session.current_round,
         }), 200
     finally:
         release_session_lock(session_id, lock_token)
     
-#GET/image/<difficulty>/<location>/<image_id>
-#Get image url the convert it to send to frontend
-@app.route("/image/<difficulty>/<location>/<image_id>")
-def get_image(difficulty, location, image_id):
-    try:
-        url = image_map[difficulty][location][image_id]
-        response = requests.get(url)
-        image_binary = io.BytesIO(response.content)
-        return send_file(image_binary, mimetype="image/jpeg")
-    except KeyError:
-        return "Not found", 404
-    except requests.RequestException: 
-        return "Failed fetching image", 500
-
 # POST /session
 # Start a new game session
 # Body: { "difficulty": "medium", "max_rounds": 5, "outside_only": false }
@@ -348,7 +282,7 @@ def create_session():
     difficulty = data.get("difficulty", "medium")
     max_rounds = data.get("max_rounds", 5)
     outside_only = parse_bool(data.get("outside_only", False), default=False)
-    seed = str(data.get("seed", "")).strip()
+    seed = secrets.token_hex(32) if leaderboard_mode else str(data.get("seed", "")).strip()
 
     if leaderboard_mode:
         difficulty = "hard"
@@ -386,17 +320,19 @@ def create_session():
         app.logger.exception("Failed to create session")
         return jsonify({"error": format_redis_error(err)}), 503
 
-    return jsonify({
+    response = {
         "session_id": session.session_id,
         "difficulty": session.difficulty,
         "max_rounds": session.max_rounds,
         "current_round": session.current_round,
         "outside_only": session.outside_only,
-        "seed": session.seed,
         "leaderboard_mode": session.leaderboard_mode,
         "total_score": session.total_score,
         "created_at": session.created_at,
-    }), 201
+    }
+    if not session.leaderboard_mode:
+        response["seed"] = session.seed
+    return jsonify(response), 201
 
 
 # GET /session/<session_id>
@@ -414,7 +350,7 @@ def get_session_state(session_id):
         "current_round": session.current_round,
         "outside_only": session.outside_only,
         "leaderboard_mode": session.leaderboard_mode,
-        "current_image_url": session.current_image_url,
+        "image_url": build_image_url(session.current_image_id) if session.current_image_id else None,
         "total_score": session.total_score,
         "created_at": session.created_at,
     }), 200
@@ -422,7 +358,7 @@ def get_session_state(session_id):
 
 # POST /guess
 # Submit a guess for a round
-# Body: { "session_id": 1, "image_url": "/image/<difficulty>/<location>/<image_id>", "round_number": 1,
+# Body: { "session_id": 1, "round_number": 1,
 #         "guess_latitude": 37.33, "guess_longitude": -121.88 }
 @app.route("/guess", methods=["POST"])
 def submit_guess():
@@ -430,7 +366,7 @@ def submit_guess():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    required = ["session_id", "image_url", "round_number", "guess_latitude", "guess_longitude"]
+    required = ["session_id", "round_number", "guess_latitude", "guess_longitude"]
     missing = [f for f in required if f not in data]
     if missing:
         return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
@@ -454,31 +390,14 @@ def submit_guess():
                 "expected_round": session.current_round,
             }), 409
 
-        if not session.current_image_url:
+        if not session.current_image_id:
             return jsonify({"error": "No active round image. Request a round image first."}), 409
 
-        image_url = str(data.get("image_url", "")).strip()
-        if image_url != session.current_image_url:
-            return jsonify({"error": "image_url does not match the active round image."}), 409
-
-        # parse the image_url to extract difficulty, location, image_id
-        # format: /image/<difficulty>/<location>/<image_id>
-        parts = image_url.split("/")
-        if len(parts) != 5 or parts[0] != "" or parts[1] != "image":
-            return jsonify({"error": "Invalid image_url format."}), 400
-
-        difficulty_from_url = parts[2]
-        location_from_url = parts[3]
-        image_id_from_url = parts[4]
-
-        # Get the actual image URL from the map to extract coordinates
-        actual_image_url = get_image_url_from_map(difficulty_from_url, location_from_url, image_id_from_url)
-        if not actual_image_url:
-            return jsonify({"error": "Image not found in map."}), 404
-
-        coordinates = resolve_coordinates_from_image_url(actual_image_url)
-        if not coordinates:
-            return jsonify({"error": "Unable to resolve coordinates from image."}), 404
+        image_id = session.current_image_id
+        image_record = image_by_id.get(image_id)
+        if not image_record:
+            return jsonify({"error": "Active round image is unavailable."}), 409
+        coordinates = (image_record["x"], image_record["y"])
 
         guess_lat = data.get("guess_latitude")
         guess_lng = data.get("guess_longitude")
@@ -495,7 +414,7 @@ def submit_guess():
         # Save guess
         guess = Guess(
             session.session_id,
-            image_url,
+            image_id,
             data["round_number"],
             guess_lat,
             guess_lng,
@@ -511,7 +430,7 @@ def submit_guess():
             session.current_round += 1
         else:
             session.current_round = session.max_rounds + 1
-        session.current_image_url = None
+        session.current_image_id = None
         save_session(session)
 
         return jsonify({

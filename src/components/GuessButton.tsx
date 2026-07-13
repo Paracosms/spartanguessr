@@ -46,7 +46,6 @@ export default function GuessButton({
 
         const guess_packet = {
             session_id,
-            image_url,
             round_number,
             guess_latitude: coordinatesToSubmit.x,
             guess_longitude: coordinatesToSubmit.y,

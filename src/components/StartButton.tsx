@@ -128,10 +128,7 @@ export default function StartButton() {
             }
             : formData;
 
-        const normalizedSeed =
-            effectiveSettings.leaderboard_mode
-                ? generateRandomSeed()
-                : effectiveSettings.seed.trim() || generateRandomSeed();
+        const normalizedSeed = effectiveSettings.seed.trim() || generateRandomSeed();
 
         try {
             const res = await fetch(`${API_BASE_URL}/session`, {
@@ -141,7 +138,7 @@ export default function StartButton() {
                     difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
                     max_rounds: effectiveSettings.round_count,
                     outside_only: effectiveSettings.outside_only,
-                    seed: normalizedSeed,
+                    ...(!effectiveSettings.leaderboard_mode && { seed: normalizedSeed }),
                     leaderboard_mode: effectiveSettings.leaderboard_mode,
                 }),
             });
@@ -171,7 +168,7 @@ export default function StartButton() {
                 unlabeledMap: effectiveSettings.unlabeled_map,
                 outsideOnly: effectiveSettings.outside_only,
                 timerLength: effectiveSettings.timer_length,
-                seed: normalizedSeed,
+                seed: effectiveSettings.leaderboard_mode ? undefined : normalizedSeed,
                 leaderboardMode: effectiveSettings.leaderboard_mode,
             };
 

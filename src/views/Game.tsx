@@ -162,7 +162,7 @@ export default function Game() {
         <>
 
             {roundImageUrl && (    
-                <img src={`${API_BASE_URL}${roundImageUrl}`}
+                <img src={roundImageUrl}
                     draggable={false}
                     style={{
                         width: "100vw",
