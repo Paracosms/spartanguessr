@@ -199,7 +199,6 @@ export default function Game() {
                             mapHeightPx={minimapHeightPx}
                             initialScale={GAME_MINIMAP_INITIAL_SCALE}
                             initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
-                            cssScale={minimapHovered ? 1.2 : 0.7}
                         />
                     </div>
 
