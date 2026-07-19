@@ -431,7 +431,7 @@ class TestSessionCreation:
 
     def test_session_state_never_exposes_seed(self, client, mock_redis):
         mock_redis.get.return_value = make_session_json(seed="private-seed")
-        response = client.get("/session/test-session-123")
+        response = client.get("/session", headers={"Authorization": "Bearer test-session-123"})
         assert response.status_code == 200
         assert "seed" not in response.get_json()
 
@@ -440,7 +440,7 @@ class TestRandomImage:
     def test_random_image_requires_session_id(self, client):
         res = client.get("/random-image")
 
-        assert res.status_code == 400
+        assert res.status_code == 401
         assert res.get_json()["error"] == "session_id is required."
 
     def test_random_image_returns_existing_round_image(self, client, app):
@@ -450,7 +450,7 @@ class TestRandomImage:
             current_image_id="00000000000000000000000000000006",
         )
 
-        res = client.get("/random-image?session_id=test-session-123")
+        res = client.get("/random-image", headers={"Authorization": "Bearer test-session-123"})
         data = res.get_json()
 
         assert res.status_code == 200
@@ -461,7 +461,7 @@ class TestRandomImage:
         session = flask_app.GameSession("test-session-123", "hard", 5, False, seed="stable")
         saved = []
         with patch("app.load_session", return_value=session), patch("app.save_session", side_effect=saved.append):
-            response = client.get("/random-image?session_id=test-session-123")
+            response = client.get("/random-image", headers={"Authorization": "Bearer test-session-123"})
 
         data = response.get_json()
         assert response.status_code == 200
@@ -521,6 +521,53 @@ class TestRemovedImageProxy:
         assert client.get("/image/hard/outside/1").status_code == 404
 
 
+class TestSessionAuth:
+    def test_random_image_rejects_missing_auth(self, client):
+        res = client.get("/random-image")
+        assert res.status_code == 401
+        assert "session_id" in res.get_json()["error"]
+
+    def test_session_state_rejects_missing_auth(self, client):
+        res = client.get("/session")
+        assert res.status_code == 401
+        assert "session_id" in res.get_json()["error"]
+
+    def test_session_results_rejects_missing_auth(self, client):
+        res = client.get("/session/results")
+        assert res.status_code == 401
+        assert "session_id" in res.get_json()["error"]
+
+    def test_session_results_returns_round_data(self, client, app):
+        _, _, mock_redis = app
+        mock_redis.get.return_value = make_session_json(
+            session_id="results-test",
+            total_score="18500",
+            current_round="6",
+        )
+        mock_redis.lrange.return_value = [
+            '{"session_id":"results-test","image_id":"img1","round_number":1,"guess_latitude":10,"guess_longitude":20,"distance_meters":100.5,"score":4800}',
+            '{"session_id":"results-test","image_id":"img2","round_number":2,"guess_latitude":30,"guess_longitude":40,"distance_meters":200.3,"score":4500}',
+        ]
+
+        res = client.get("/session/results", headers={"Authorization": "Bearer results-test"})
+        data = res.get_json()
+
+        assert res.status_code == 200
+        assert data["total_score"] == 18500
+        assert data["rounds_played"] == 2
+        assert data["average_distance"] == 150.4
+        assert data["smallest_distance"] == 100.5
+        assert data["largest_distance"] == 200.3
+
+    def test_session_results_session_not_found(self, client, app):
+        _, _, mock_redis = app
+        mock_redis.get.return_value = None
+
+        res = client.get("/session/results", headers={"Authorization": "Bearer missing"})
+        assert res.status_code == 404
+        assert "Session" in res.get_json()["error"]
+
+
 class TestRateLimit:
     def test_all_requests_limit_each_ip(self, client, app):
         _, flask_app, mock_redis = app
@@ -533,6 +580,60 @@ class TestRateLimit:
 
         assert [response.status_code for response in responses] == [200] * 5 + [429]
         assert mock_redis.incr.call_count == flask_app.RATE_LIMIT_REQUESTS + 1
+
+
+class TestContentLengthLimit:
+    def test_oversized_body_returns_413(self, client, app):
+        _, flask_app, _ = app
+        max_bytes = flask_app.app.config["MAX_CONTENT_LENGTH"]
+        huge_body = "x" * (max_bytes + 1)
+
+        res = client.post(
+            "/session",
+            content_type="application/json",
+            data=huge_body,
+        )
+
+        assert res.status_code == 413
+
+    def test_body_within_limit_succeeds(self, client, app):
+        _, flask_app, _ = app
+        body = json.dumps({"difficulty": "medium", "max_rounds": 3, "seed": "ok"}).encode()
+
+        res = client.post("/session", content_type="application/json", data=body)
+
+        assert res.status_code != 413
+
+
+class TestSeedLengthLimit:
+    def test_oversized_seed_returns_400(self, client):
+        res = client.post("/session", json={
+            "difficulty": "medium",
+            "max_rounds": 5,
+            "seed": "x" * 129,
+        })
+
+        assert res.status_code == 400
+        assert "Seed" in res.get_json()["error"]
+
+    def test_seed_at_limit_succeeds(self, client):
+        res = client.post("/session", json={
+            "difficulty": "medium",
+            "max_rounds": 5,
+            "seed": "y" * 128,
+        })
+
+        assert res.status_code == 201
+        assert res.get_json()["seed"] == "y" * 128
+
+    def test_leaderboard_mode_ignores_seed_and_generates_own(self, client, mock_redis):
+        res = client.post("/session", json={
+            "leaderboard_mode": True,
+            "seed": "x" * 200,
+        })
+
+        assert res.status_code == 201
+        assert "seed" not in res.get_json()
 
 
 class TestSeedStability:

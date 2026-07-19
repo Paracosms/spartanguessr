@@ -4,6 +4,7 @@ import json
 import uuid
 import secrets
 import time
+import math
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ from upstash_redis import Redis
 load_dotenv()
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
 
 allowed_origin = os.environ.get("ALLOWED_ORIGIN")
 CORS(app, origins=[allowed_origin, "http://localhost:5173"])
@@ -41,6 +43,12 @@ app.logger.info("Validated private image catalog with %d records", len(image_by_
 # random 64 character string for session id to prevent guessing and collisions
 def generate_session_id():
     return secrets.token_hex(32)
+
+def get_session_id_from_request():
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    return None
 
 # boolean helper function to handle various truthy/falsy inputs
 def parse_bool(value, default=False):
@@ -226,9 +234,9 @@ def health():
 # Get the active round's direct CDN image URL.
 @app.route("/random-image")
 def random_image():
-    session_id = request.args.get("session_id", type=str)
+    session_id = get_session_id_from_request()
     if not session_id:
-        return jsonify({"error": "session_id is required."}), 400
+        return jsonify({"error": "session_id is required."}), 401
 
     lock_token = acquire_session_lock(session_id)
     if not lock_token:
@@ -275,6 +283,8 @@ def random_image():
 @app.route("/session", methods=["POST"])
 def create_session():
     data = request.get_json()
+    if not isinstance(data, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
@@ -283,6 +293,8 @@ def create_session():
     max_rounds = data.get("max_rounds", 5)
     outside_only = parse_bool(data.get("outside_only", False), default=False)
     seed = secrets.token_hex(32) if leaderboard_mode else str(data.get("seed", "")).strip()
+    if not leaderboard_mode and len(seed) > 128:
+        return jsonify({"error": "Seed must be 128 characters or fewer."}), 400
 
     if leaderboard_mode:
         difficulty = "hard"
@@ -335,10 +347,14 @@ def create_session():
     return jsonify(response), 201
 
 
-# GET /session/<session_id>
+# GET /session
 # Return current server-side state for a session.
-@app.route("/session/<session_id>", methods=["GET"])
-def get_session_state(session_id):
+@app.route("/session", methods=["GET"])
+def get_session_state():
+    session_id = get_session_id_from_request()
+    if not session_id:
+        return jsonify({"error": "session_id is required."}), 401
+
     session = load_session(session_id)
     if not session:
         return jsonify({"error": "Session not found."}), 404
@@ -363,6 +379,8 @@ def get_session_state(session_id):
 @app.route("/guess", methods=["POST"])
 def submit_guess():
     data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
@@ -404,6 +422,13 @@ def submit_guess():
 
         if guess_lat is None or guess_lng is None:
             return jsonify({"error": "Missing coordinates"}), 400
+
+        if not isinstance(guess_lat, (int, float)) or not isinstance(guess_lng, (int, float)):
+            return jsonify({"error": "Coordinates must be numeric."}), 400
+        if isinstance(guess_lat, bool) or isinstance(guess_lng, bool):
+            return jsonify({"error": "Coordinates must be numeric."}), 400
+        if not math.isfinite(guess_lat) or not math.isfinite(guess_lng):
+            return jsonify({"error": "Coordinates must be finite values."}), 400
 
         # Calculate distance and score
         score, distance_meters = score_algorithm(
@@ -450,10 +475,14 @@ def submit_guess():
         release_session_lock(session_id, lock_token)
 
 
-# GET /session/<session_id>/results
+# GET /session/results
 # Get all round results for a session (final summary)
-@app.route("/session/<session_id>/results")
-def get_results(session_id):
+@app.route("/session/results")
+def get_results():
+    session_id = get_session_id_from_request()
+    if not session_id:
+        return jsonify({"error": "session_id is required."}), 401
+
     session = load_session(session_id)
     if not session:
         return jsonify({"error": "Session not found."}), 404
@@ -518,14 +547,17 @@ def check_qualify():
 @app.route("/leaderboard", methods=["POST"])
 def add_to_leaderboard():
     data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Request body must be a JSON object."}), 400
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    name = data.get("name", "").strip()
+    raw_name = data.get("name")
+    if not isinstance(raw_name, str) or not raw_name.strip():
+        return jsonify({"error": "Name is required."}), 400
+    name = raw_name.strip()
     session_id = str(data.get("session_id", "")).strip()
 
-    if not name:
-        return jsonify({"error": "Name is required."}), 400
     if len(name) > 20:
         return jsonify({"error": "Name must be 20 characters or fewer."}), 400
     if "score" in data:
