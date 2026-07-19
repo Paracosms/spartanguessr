@@ -72,9 +72,10 @@ export default function Game() {
 
         try {
             setRoundImageUrl(null);
-            const randomImageRes = await fetch(`${API_BASE_URL}/random-image`, {
-                headers: { "Authorization": `Bearer ${sessionId}` },
-            });
+            const params = new URLSearchParams();
+            params.set("session_id", sessionId);
+
+            const randomImageRes = await fetch(`${API_BASE_URL}/random-image?${params.toString()}`);
             if (!randomImageRes.ok) {
                 if (randomImageRes.status === 404) {
                     navigate("/", { replace: true });

@@ -68,9 +68,7 @@ export default function Results() {
 
             if (sessionId) {
                 try {
-                    const res = await fetch(`${API_BASE_URL}/session/results`, {
-                        headers: { "Authorization": `Bearer ${sessionId}` },
-                    });
+                    const res = await fetch(`${API_BASE_URL}/session/${sessionId}/results`);
                     if (res.ok) {
                         const data = await res.json();
                         if (typeof data.total_score === "number" && Number.isFinite(data.total_score)) {
