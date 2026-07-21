@@ -1,23 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 
-type Point = { x: number; y: number };
-type ApiDifficulty = "easy" | "medium" | "hard";
-
-type GameRouteState = {
-    sessionId?: string;
-    roundCount?: number;
-    difficulty?: ApiDifficulty;
-    unlabeledMap?: boolean;
-    outsideOnly?: boolean;
-    timerLength?: string;
-    seed?: string;
-    leaderboardMode?: boolean;
-} | null;
-
-const API_BASE_URL = "https://spartanguessr-by1x.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -37,6 +24,7 @@ export default function Game() {
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
     const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
     const location = useLocation();
+    const navigate = useNavigate();
 
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
@@ -59,6 +47,7 @@ export default function Game() {
         roundCount: maxRounds,
         difficulty,
         outsideOnly,
+        unlabeledMap,
         timerLength,
         seed,
         leaderboardMode,
@@ -76,23 +65,22 @@ export default function Game() {
 
     // receive image url
     const loadRandomImage = useCallback(async () => {
+        if (!sessionId) {
+            navigate("/", { replace: true });
+            return;
+        }
+
         try {
             setRoundImageUrl(null);
             const params = new URLSearchParams();
-
-            if (sessionId != null) {
-                params.set("session_id", String(sessionId));
-            } else {
-                params.set("difficulty", difficulty);
-                params.set("outside_only", outsideOnly ? "true" : "false");
-            }
-
-            if (seed) {
-                params.set("seed", seed);
-            }
+            params.set("session_id", sessionId);
 
             const randomImageRes = await fetch(`${API_BASE_URL}/random-image?${params.toString()}`);
             if (!randomImageRes.ok) {
+                if (randomImageRes.status === 404) {
+                    navigate("/", { replace: true });
+                    return;
+                }
                 console.error("FAIL", `Unable to get random image: ${randomImageRes.status}`);
                 return;
             }
@@ -118,9 +106,14 @@ export default function Game() {
         } catch (err) {
             console.error("FAIL", err);
         }
-    }, [difficulty, outsideOnly, roundTimerSeconds, seed, sessionId]);
+    }, [navigate, roundTimerSeconds, sessionId]);
 
     useEffect(() => {
+        if (!sessionId) {
+            navigate("/", { replace: true });
+            return;
+        }
+
         const timeoutId = window.setTimeout(() => {
             void loadRandomImage();
         }, 0);
@@ -128,7 +121,7 @@ export default function Game() {
         return () => {
             window.clearTimeout(timeoutId);
         };
-    }, [loadRandomImage]);
+    }, [loadRandomImage, navigate, sessionId]);
 
     useEffect(() => {
         if (roundTimerSeconds == null || !roundImageUrl) {
@@ -169,7 +162,7 @@ export default function Game() {
         <>
 
             {roundImageUrl && (    
-                <img src={`${API_BASE_URL}${roundImageUrl}`}
+                <img src={roundImageUrl}
                     draggable={false}
                     style={{
                         width: "100vw",
@@ -204,10 +197,8 @@ export default function Game() {
                             unlabeled={unlabeledMap}
                             onPinChange={setPinPosition}
                             mapHeightPx={minimapHeightPx}
-                            minZoomMode="fit"
                             initialScale={GAME_MINIMAP_INITIAL_SCALE}
                             initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
-                            cssScale={minimapHovered ? 1.2 : 0.7}
                         />
                     </div>
 
@@ -220,8 +211,6 @@ export default function Game() {
                             max_rounds={maxRounds}
                             coordinates={pinPosition}
                             gameState={gameNavigationState}
-                            onGameComplete={() => {}}
-                            seed={seed}
                             autoSubmitSignal={autoSubmitSignal}
                         />
                     </div>

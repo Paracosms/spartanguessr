@@ -1,38 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
-
-type Point = { x: number; y: number };
-
-type ApiDifficulty = "easy" | "medium" | "hard";
-
-type GameRouteState = {
-	sessionId?: string;
-	roundCount?: number;
-	difficulty?: ApiDifficulty;
-    unlabled?: boolean;
-	outsideOnly?: boolean;
-	timerLength?: string;
-	seed?: string;
-	leaderboardMode?: boolean;
-};
-
-type ScoreRouteState = {
-	guess_pos?: Point;
-	actual_pos?: Point;
-	image_url?: string;
-	round_score?: number;
-	round_number?: number;
-	gameState?: GameRouteState;
-	is_game_complete?: boolean;
-	resultsState?: {
-		totalScore?: number;
-		sessionId?: string;
-		leaderboardMode?: boolean;
-	};
-} | null;
+import type { ScoreRouteState } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const SCORE_MINIMAP_HEIGHT_VH = 0.80;
+
+function computeMinimapHeight() {
+	return Math.round(window.innerHeight * SCORE_MINIMAP_HEIGHT_VH);
+}
 
 export default function Score() {
 	const location = useLocation();
@@ -44,14 +20,24 @@ export default function Score() {
 	const gameState = routeState?.gameState;
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
+	const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
 
-    const unlabeled = routeState?.gameState?.unlabled ?? false;
+    const unlabeled = routeState?.gameState?.unlabeledMap ?? false;
 
 	useEffect(() => {
 		if (!guessPos || !actualPos || !imageUrl || (!gameState && !isGameComplete)) {
 			navigate("/game", { replace: true });
 		}
 	}, [actualPos, gameState, guessPos, imageUrl, isGameComplete, navigate]);
+
+	useEffect(() => {
+		function handleResize() {
+			setMinimapHeightPx(computeMinimapHeight());
+		}
+
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, []);
 
 	if (!guessPos || !actualPos || !imageUrl || (!gameState && !isGameComplete)) {
 		return null;
@@ -118,9 +104,8 @@ export default function Score() {
 					pinPosition={guessPos}
 					onPinChange={() => {}}
 					allowPinPlacement={false}
-					mapHeightVh={80}
+					mapHeightPx={minimapHeightPx}
                     unlabeled={unlabeled}
-					minZoomMode="fit"
 					initializeScaleToMinZoom
 					actualPosition={actualPos}
 					showActualDot
@@ -144,6 +129,7 @@ export default function Score() {
 		</main>
 	);
 }
+
 
 
 

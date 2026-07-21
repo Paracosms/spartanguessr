@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import Background from "../assets/LeaderboardBackground.jpg";
+import type { ResultsRouteState } from "../utils/types";
 
-const API_BASE_URL = "https://spartanguessr-by1x.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const BLUE = "#1176B9";
 const GOLD = "#FFC108";
 
@@ -13,12 +14,6 @@ type LeaderboardEntry = {
     score: number;
     rank: number;
 };
-
-type ResultsRouteState = {
-    totalScore?: number;
-    sessionId?: string;
-    leaderboardMode?: boolean;
-} | null;
 
 export default function Results() {
     const location = useLocation();
@@ -119,7 +114,7 @@ export default function Results() {
         }
     }
 
-    async function returnToMainMenu() {
+    function returnToMainMenu() {
         navigate("/")
     }
 

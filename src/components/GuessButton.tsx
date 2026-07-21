@@ -1,20 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { GameRouteState, Point } from "../utils/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-type Point = { x: number; y: number };
-type ApiDifficulty = "easy" | "medium" | "hard";
-
-type GameRouteState = {
-    sessionId?: string;
-    roundCount?: number;
-    difficulty?: ApiDifficulty;
-    outsideOnly?: boolean;
-    timerLength?: string;
-    seed?: string;
-    leaderboardMode?: boolean;
-};
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -23,8 +11,6 @@ type GuessButtonProps = {
     max_rounds: number;
     coordinates: Point | null;
     gameState: GameRouteState;
-    onGameComplete?: (finalScore: number) => void;
-    seed: string;
     autoSubmitSignal?: number;
 };
 
@@ -35,7 +21,6 @@ export default function GuessButton({
     max_rounds,
     coordinates,
     gameState,
-    seed,
     autoSubmitSignal = 0,
 }: GuessButtonProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,14 +46,10 @@ export default function GuessButton({
 
         const guess_packet = {
             session_id,
-            image_url,
             round_number,
             guess_latitude: coordinatesToSubmit.x,
             guess_longitude: coordinatesToSubmit.y,
-            seed,
         };
-
-        console.log(guess_packet);
 
         try {
             setIsSubmitting(true);
@@ -92,8 +73,6 @@ export default function GuessButton({
                 game_complete?: boolean;
             };
 
-            console.log("SUCCESS", result);
-
             const gameComplete = result.game_complete === true || round_number >= max_rounds;
 
             navigate("/score", {
@@ -108,8 +87,8 @@ export default function GuessButton({
                     resultsState: gameComplete
                         ? {
                             totalScore: result.total_score,
-                            sessionId: gameState.sessionId,
-                            leaderboardMode: gameState.leaderboardMode,
+                            sessionId: gameState?.sessionId,
+                            leaderboardMode: gameState?.leaderboardMode,
                         }
                         : undefined,
                 },
@@ -119,7 +98,7 @@ export default function GuessButton({
         } finally {
             setIsSubmitting(false);
         }
-    }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, seed, session_id]);
+    }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, session_id]);
 
     useEffect(() => {
         if (autoSubmitSignal <= lastAutoSubmitSignal.current) {

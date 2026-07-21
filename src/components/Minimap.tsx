@@ -2,42 +2,30 @@ import { useEffect, useRef, useState } from "react";
 import mapLabeled from "../assets/MapLabeled.jpg";
 import mapUnlabeled from "../assets/MapUnlabeled.jpg";
 import pin from "../assets/Pin.png";
-type Point = { x: number; y: number };
+import type { Point } from "../utils/types";
 type ViewState = { scale: number; offset: Point };
 type MinimapProps = {
     pinPosition: Point | null;
     onPinChange: (point: Point) => void;
     unlabeled: boolean;
     allowPinPlacement?: boolean;
-    mapHeightVh?: number;
     mapHeightPx?: number;
     initialScale?: number;
     initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
-    cssScale?: number; // scale of the wrapper div, used to correct pin placement math
     minZoomFloor?: number;
-    minZoomMode?: "legacy" | "fit";
     initializeScaleToMinZoom?: boolean;
     actualPosition?: Point | null;
     showActualDot?: boolean;
 };
-declare global {
-    interface Window {
-        debug?: boolean;
-    }
-}
-
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
-const MAP_HEIGHT = 40; // -> 40vh
 const PIN_SIZE_PX = 30;
+const PIN_TIP_X_PERCENT = (203 / 388) * 100; // visible tip center in the source sprite
 const INITIAL_SCALE = 1; // prod = 1.0
 const ZOOM_SPEED = 0.05;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
-const BASE_MIN_ZOOM = 0.20;  // this should scale based on MAP_HEIGHT
-// The scale that encompasses the entire map on a MIN_ZOOM_REFERENCE_HEIGHT px display
-const MIN_ZOOM_REFERENCE_HEIGHT = 1080;
-const MAX_DYNAMIC_MIN_ZOOM = 0.45;
+const BASE_MIN_ZOOM = 0.20;
 const MAX_ZOOM = 2;
 const FIT_ZOOM_PADDING = 0.98;
 
@@ -51,13 +39,10 @@ export default function Minimap({
     onPinChange,
     unlabeled,
     allowPinPlacement = true,
-    mapHeightVh = MAP_HEIGHT,
     mapHeightPx,
     initialScale = INITIAL_SCALE,
     initialOffset = INITIAL_MAP_POS,
-    cssScale = 1,
     minZoomFloor,
-    minZoomMode = "legacy",
     initializeScaleToMinZoom = false,
     actualPosition = null,
     showActualDot = false,
@@ -70,7 +55,6 @@ export default function Minimap({
     }));
     const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
-    const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
     const { scale, offset } = view;
     const dragStartRef = useRef({x:0, y:0});
     const dragMouseStartRef = useRef({x:0, y:0});
@@ -96,15 +80,11 @@ export default function Minimap({
         const container = containerRef.current;
         if (!container) return;
 
-        // Converts global to local mouse coordinates (divide by cssScale to fix pin offset when minimap is scaled)
-        const rect = container.getBoundingClientRect();
-        const mouseX = round((e.clientX - rect.left) / cssScale, 0);
-        const mouseY = round((e.clientY - rect.top) / cssScale, 0);
-
+        const mouse = getLocalPoint(container, e.clientX, e.clientY);
         // Save pin in map coordinates so it remains anchored through zooms/pans
         onPinChange({
-            x: clamp(round((mouseX - offset.x) / scale, 0), 0, MINIMAP_WIDTH),
-            y: clamp(round((mouseY - offset.y) / scale, 0), 0, MINIMAP_HEIGHT),
+            x: clamp(round((mouse.x - offset.x) / scale, 4), 0, MINIMAP_WIDTH),
+            y: clamp(round((mouse.y - offset.y) / scale, 4), 0, MINIMAP_HEIGHT),
         });
     }
 
@@ -117,11 +97,15 @@ export default function Minimap({
         dragMovedRef.current = false;
         dragMouseStartRef.current = { x: e.clientX, y: e.clientY };
 
+        const container = containerRef.current;
+        if (!container) return;
+        const mouse = getLocalPoint(container, e.clientX, e.clientY);
+
         // Prevents image from snapping the corner to the mouse (aka allows for relative image movement)
         // Also stores initial position of map before the pan movement
         dragStartRef.current = {
-            x: e.clientX - offset.x,
-            y: e.clientY - offset.y,
+            x: mouse.x - offset.x,
+            y: mouse.y - offset.y,
         };
     }
 
@@ -133,10 +117,7 @@ export default function Minimap({
         const container = containerRef.current;
         if (!container) return;
 
-        // Converts global to local mouse coordinates
-        const rect = container.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const { x: mouseX, y: mouseY } = getLocalPoint(container, e.clientX, e.clientY);
 
         setView((prev) => {
             const zoomFactor = e.deltaY > 0 ? -ZOOM_SPEED : ZOOM_SPEED;
@@ -174,10 +155,11 @@ export default function Minimap({
 
             const width = container.clientWidth;
             const height = container.clientHeight;
+            const mouse = getLocalPoint(container, e.clientX, e.clientY);
 
             const nextOffset = {
-                x: e.clientX - dragStartRef.current.x,
-                y: e.clientY - dragStartRef.current.y,
+                x: mouse.x - dragStartRef.current.x,
+                y: mouse.y - dragStartRef.current.y,
             };
 
             if (
@@ -190,7 +172,6 @@ export default function Minimap({
                 dragMovedRef.current = true;
             }
 
-            // offset.x and offset.y is updated and then used as transform parameters in the <img>
             setView((prev) => ({
                 ...prev,
                 offset: clampOffset(nextOffset, prev.scale, width, height),
@@ -221,12 +202,9 @@ export default function Minimap({
             const width = container.clientWidth;
             const height = container.clientHeight;
             if (width <= 0 || height <= 0) return;
-            const dynamicMinZoom =
-                minZoomMode === "fit"
-                    ? getFitMinZoom(width, height)
-                    : getMinZoom(height, mapHeightVh, mapHeightPx);
-            const nextMinZoom =
-                minZoomFloor != null ? Math.max(dynamicMinZoom, minZoomFloor) : dynamicMinZoom;
+            const nextMinZoom = minZoomFloor != null
+                ? Math.max(getFitMinZoom(width, height), minZoomFloor)
+                : getFitMinZoom(width, height);
             setMinZoom(nextMinZoom);
 
             setView((prev) => {
@@ -244,35 +222,7 @@ export default function Minimap({
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, [mapHeightPx, mapHeightVh, minZoomFloor, minZoomMode, initializeScaleToMinZoom]);
-
-    // Allows `debug = true/false` in the browser console to toggle debug UI
-    useEffect(() => {
-        const existingDescriptor = Object.getOwnPropertyDescriptor(window, "debug");
-
-        if (!existingDescriptor || existingDescriptor.configurable) {
-            let debugValue = window.debug === true;
-
-            Object.defineProperty(window, "debug", {
-                configurable: true,
-                get() {
-                    return debugValue;
-                },
-                set(value: boolean) {
-                    debugValue = Boolean(value);
-                    setDebugEnabled(debugValue);
-                },
-            });
-            return;
-        }
-
-        // Fallback if another script already defines a debug property.
-        const syncInterval = window.setInterval(() => {
-            setDebugEnabled(window.debug === true);
-        }, 250);
-
-        return () => window.clearInterval(syncInterval);
-    }, []);
+    }, [minZoomFloor, initializeScaleToMinZoom]);
 
     // Prevent trackpad pinch-to-zoom on the minimap
     useEffect(() => {
@@ -288,16 +238,6 @@ export default function Minimap({
     }, []);
 
     return <>
-        {debugEnabled && (
-            <>
-                <p className="text-white">Debug Coordinates: {offset.x}, {offset.y}</p>
-                <p className="text-white">Scale: {scale}</p>
-                <p className="text-white">Min Zoom: {minZoom}</p>
-                <p className="text-white">
-                    Pin: {pinPosition ? `${pinPosition.x}, ${pinPosition.y}` : "not placed"}
-                </p>
-            </>
-        )}
     <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
@@ -305,7 +245,7 @@ export default function Minimap({
         onClick={allowPinPlacement ? handleClick : undefined}
         className="rounded shadow border border-5 border-warning"
         style={{
-            height: mapHeightPx != null ? `${mapHeightPx}px` : `${mapHeightVh}vh`,
+            height: mapHeightPx != null ? `${mapHeightPx}px` : "40vh",
             aspectRatio: `${ASPECT_RATIO}`,
             position: "relative",
             overflow: "hidden",
@@ -314,53 +254,64 @@ export default function Minimap({
             touchAction: "none",
         }}
     >
-        <img
-            className={"minimap-img"}
-            src={unlabeled ? mapUnlabeled : mapLabeled}
-            alt="Campus Minimap"
-            draggable={false}
-            onDragStart={(e) => e.preventDefault()}
+        <div
             style={{
+                position: "absolute",
+                width: `${MINIMAP_WIDTH}px`,
+                height: `${MINIMAP_HEIGHT}px`,
                 transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
                 transformOrigin: "top left",
-                userSelect: "none",
                 pointerEvents: "none",
             }}
-        />
-        
-        {pinPosition && (
+        >
             <img
-                src={pin}
-                alt="Selected location"
+                className={"minimap-img"}
+                src={unlabeled ? mapUnlabeled : mapLabeled}
+                alt="Campus Minimap"
                 draggable={false}
+                onDragStart={(e) => e.preventDefault()}
                 style={{
-                    position: "absolute",
-                    left: `${offset.x + pinPosition.x * scale}px`,
-                    top: `${offset.y + pinPosition.y * scale}px`,
-                    transform: "translate(-50%, -100%) translate(-6px, -2px)", // aj messed with pin translate
-                    width: `${PIN_SIZE_PX / 1.5}px`,
-                    pointerEvents: "none",
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
                     userSelect: "none",
                 }}
             />
-        )}
-        {showActualDot && actualPosition && (
-            <div
-                style={{
-                    position: "absolute",
-                    left: `${offset.x + actualPosition.x * scale}px`,
-                    top: `${offset.y + actualPosition.y * scale}px`,
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "50%",
-                    background: "#ff3b30",
-                    border: "2px solid white",
-                    transform: "translate(-50%, -50%) translate(-7px, -7px)",
-                    pointerEvents: "none",
-                    boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
-                }}
-            />
-        )}
+
+            {pinPosition && (
+                <img
+                    src={pin}
+                    alt="Selected location"
+                    draggable={false}
+                    style={{
+                        position: "absolute",
+                        left: `${pinPosition.x}px`,
+                        top: `${pinPosition.y}px`,
+                        transform: `scale(${1 / scale}) translate(${-PIN_TIP_X_PERCENT}%, -100%)`,
+                        transformOrigin: "top left",
+                        width: `${PIN_SIZE_PX / 1.5}px`,
+                        userSelect: "none",
+                    }}
+                />
+            )}
+            {showActualDot && actualPosition && (
+                <div
+                    style={{
+                        position: "absolute",
+                        left: `${actualPosition.x}px`,
+                        top: `${actualPosition.y}px`,
+                        width: "20px",
+                        height: "20px",
+                        borderRadius: "50%",
+                        background: "#ff3b30",
+                        border: "2px solid white",
+                        transform: `scale(${1 / scale}) translate(-50%, -50%)`,
+                        transformOrigin: "top left",
+                        boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
+                    }}
+                />
+            )}
+        </div>
     </div>
 
     </>
@@ -372,21 +323,21 @@ function round(value: number, decimal_places: number): number {
     return Math.round(value * multiplier) / multiplier;
 }
 
-// fix for 1080p+ monitors
-function getMinZoom(containerHeight: number, mapHeightVh: number, mapHeightPx?: number): number {
-    const referenceContainerHeight = mapHeightPx ?? (MIN_ZOOM_REFERENCE_HEIGHT * mapHeightVh) / 100;
-    const scaledMinZoom = BASE_MIN_ZOOM * (containerHeight / referenceContainerHeight); // should be 0.35 at 1080p, 1440p 4k
-    const clampedMinZoom = clamp(scaledMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM);
-
-    const baseSteps = Math.ceil(clampedMinZoom / ZOOM_SPEED);
-    const extraStepBias = containerHeight > referenceContainerHeight ? 1 : 0;
-    const quantizedMinZoom = (baseSteps + extraStepBias) * ZOOM_SPEED;
-    return round(clamp(quantizedMinZoom, BASE_MIN_ZOOM, MAX_DYNAMIC_MIN_ZOOM), 2);
-}
-
 function getFitMinZoom(containerWidth: number, containerHeight: number): number {
     const fitScale = Math.min(containerWidth / MINIMAP_WIDTH, containerHeight / MINIMAP_HEIGHT) * FIT_ZOOM_PADDING;
     return round(clamp(fitScale, BASE_MIN_ZOOM, MAX_ZOOM), 3);
+}
+
+function getLocalPoint(container: HTMLDivElement, clientX: number, clientY: number): Point {
+    const rect = container.getBoundingClientRect();
+    const style = window.getComputedStyle(container);
+    const renderedScaleX = rect.width / Number.parseFloat(style.width);
+    const renderedScaleY = rect.height / Number.parseFloat(style.height);
+
+    return {
+        x: (clientX - rect.left) / renderedScaleX - container.clientLeft,
+        y: (clientY - rect.top) / renderedScaleY - container.clientTop,
+    };
 }
 
 // top 1 clamp function
@@ -415,8 +366,8 @@ function clampOffset(
     const maxY = scaledHeight <= containerHeight ? centeredY : 0;
 
     return {
-        x: round(clamp(offset.x, minX, maxX), 0),
-        y: round(clamp(offset.y, minY, maxY), 0),
+        x: clamp(offset.x, minX, maxX),
+        y: clamp(offset.y, minY, maxY),
     };
 }
 

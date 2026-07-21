@@ -1,5 +1,5 @@
 # all data is stored in Upstash Redis with simple key-value patterns.
-# session data stored as hash: session:{session_id}
+# session data stored as JSON string: session:{session_id}
 # guesses stored as list: session:{session_id}:guesses
 
 import json
@@ -16,7 +16,7 @@ class GameSession:
         self.outside_only = outside_only
         self.seed = seed
         self.leaderboard_mode = leaderboard_mode
-        self.current_image_url = None
+        self.current_image_id = None
         self.total_score = 0
         self.leaderboard_submitted = False
         self.created_at = datetime.now(UTC).isoformat()
@@ -31,7 +31,7 @@ class GameSession:
             "outside_only": "true" if self.outside_only else "false",
             "seed": self.seed,
             "leaderboard_mode": "true" if self.leaderboard_mode else "false",
-            "current_image_url": self.current_image_url or "",
+            "current_image_id": self.current_image_id or "",
             "total_score": str(self.total_score),
             "leaderboard_submitted": "true" if self.leaderboard_submitted else "false",
             "created_at": self.created_at,
@@ -39,7 +39,7 @@ class GameSession:
 
     @staticmethod
     def from_dict(data):
-        # deserialize from hash (backwards compatibility)
+        # deserialize from persisted session JSON
         if not data:
             return None
         session = GameSession(
@@ -51,7 +51,7 @@ class GameSession:
             data.get("leaderboard_mode", "false") == "true",
         )
         session.current_round = int(data.get("current_round", 1))
-        session.current_image_url = data.get("current_image_url") or None
+        session.current_image_id = data.get("current_image_id") or None
         session.total_score = int(data.get("total_score", 0))
         session.leaderboard_submitted = data.get("leaderboard_submitted", "false") == "true"
         session.created_at = data.get("created_at", datetime.now(UTC).isoformat())
@@ -60,27 +60,25 @@ class GameSession:
 
 class Guess:
     # guess properties
-    def __init__(self, session_id, image_url, round_number, guess_latitude, guess_longitude, distance_meters, score, seed=None):
+    def __init__(self, session_id, image_id, round_number, guess_latitude, guess_longitude, distance_meters, score):
         self.session_id = session_id
-        self.image_url = image_url
+        self.image_id = image_id
         self.round_number = round_number
         self.guess_latitude = guess_latitude
         self.guess_longitude = guess_longitude
         self.distance_meters = distance_meters
         self.score = score
-        self.seed = seed
 
     # serialize to json
     def to_json(self):
         return json.dumps({
             "session_id": self.session_id,
-            "image_url": self.image_url,
+            "image_id": self.image_id,
             "round_number": self.round_number,
             "guess_latitude": self.guess_latitude,
             "guess_longitude": self.guess_longitude,
             "distance_meters": self.distance_meters,
             "score": self.score,
-            "seed": self.seed,
         })
 
     @staticmethod
@@ -89,11 +87,10 @@ class Guess:
         data = json.loads(json_str)
         return Guess(
             data["session_id"],
-            data["image_url"],
+            data["image_id"],
             data["round_number"],
             data["guess_latitude"],
             data["guess_longitude"],
             data["distance_meters"],
             data["score"],
-            data.get("seed"),
         )

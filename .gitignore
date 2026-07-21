@@ -30,3 +30,7 @@ __pycache__/
 *.pyo
 instance/
 *.db
+backend/image_catalog.local.json
+image_catalog.private.json
+migrated-images/
+image_catalog_additions.json

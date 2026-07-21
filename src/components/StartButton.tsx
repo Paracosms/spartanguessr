@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SettingsMenu from "./SettingsMenu.tsx";
 import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
+import type { ApiDifficulty, GameRouteState } from "../utils/types";
 
 type DifficultyLabel = "Easy" | "Medium" | "Hard";
 
 type GameFormData = {
     difficulty: 1 | 2 | 3;
-    unlabled_map: boolean;
+    unlabeled_map: boolean;
     round_count: number;
     timer_length: string;
     seed: string;
@@ -25,7 +26,7 @@ const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
 
 const LEADERBOARD_PRESET = {
     difficulty: 3 as const,
-    unlabled_map: false,
+    unlabeled_map: false,
     round_count: 5,
     timer_length: "30",
     outside_only: false,
@@ -41,7 +42,7 @@ function levelToDifficulty(level: 1 | 2 | 3): DifficultyLabel {
     return "Easy";
 }
 
-function levelToApiDifficulty(level: 1 | 2 | 3): "easy" | "medium" | "hard" {
+function levelToApiDifficulty(level: 1 | 2 | 3): ApiDifficulty {
     if (level === 1) return "easy";
     if (level === 3) return "hard";
     return "medium";
@@ -56,7 +57,7 @@ export default function StartButton() {
         timer_length: "30", // "none" "30" "60" "120"
         seed: "",
         outside_only: false,
-        unlabled_map: false,
+        unlabeled_map: false,
         leaderboard_mode: false,
     });
     const navigate = useNavigate();
@@ -68,7 +69,7 @@ export default function StartButton() {
     }
 
     function handleUnlabeledMapChange(value: boolean) {
-        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, unlabled_map: value }));
+        setFormData((prev) => (prev.leaderboard_mode ? prev : { ...prev, unlabeled_map: value }));
     }
 
     function handleTimerLengthChange(value: string) {
@@ -106,7 +107,7 @@ export default function StartButton() {
     /* SELECTION SUMMARY:
         {`{
             difficulty: ${formData.difficulty}
-            unlabeled_map: ${formData.unlabled_map}
+            unlabeled_map: ${formData.unlabeled_map}
             round_count: ${formData.round_count}
             timer_length: ${formData.timer_length}
             seed: ${formData.seed}
@@ -127,10 +128,7 @@ export default function StartButton() {
             }
             : formData;
 
-        const normalizedSeed =
-            effectiveSettings.leaderboard_mode
-                ? generateRandomSeed()
-                : effectiveSettings.seed.trim() || generateRandomSeed();
+        const normalizedSeed = effectiveSettings.seed.trim() || generateRandomSeed();
 
         try {
             const res = await fetch(`${API_BASE_URL}/session`, {
@@ -140,7 +138,7 @@ export default function StartButton() {
                     difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
                     max_rounds: effectiveSettings.round_count,
                     outside_only: effectiveSettings.outside_only,
-                    seed: normalizedSeed,
+                    ...(!effectiveSettings.leaderboard_mode && { seed: normalizedSeed }),
                     leaderboard_mode: effectiveSettings.leaderboard_mode,
                 }),
             });
@@ -163,20 +161,19 @@ export default function StartButton() {
 
             const result = (await res.json()) as { session_id: string };
 
-            navigate("/game", {
-                state: {
-                    sessionId: result.session_id,
-                    roundCount: effectiveSettings.round_count,
-                    difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
-                    unlabeledMap: effectiveSettings.unlabled_map,
-                    outsideOnly: effectiveSettings.outside_only,
-                    timerLength: effectiveSettings.timer_length,
-                    seed: normalizedSeed,
-                    leaderboardMode: effectiveSettings.leaderboard_mode,
-                },
-            });
+            const gameRouteState: NonNullable<GameRouteState> = {
+                sessionId: result.session_id,
+                roundCount: effectiveSettings.round_count,
+                difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
+                unlabeledMap: effectiveSettings.unlabeled_map,
+                outsideOnly: effectiveSettings.outside_only,
+                timerLength: effectiveSettings.timer_length,
+                seed: effectiveSettings.leaderboard_mode ? undefined : normalizedSeed,
+                leaderboardMode: effectiveSettings.leaderboard_mode,
+            };
 
-            console.log("SUCCESS", result);
+            navigate("/game", { state: gameRouteState });
+
         } catch (err) {
             console.error("FAIL", err);
             alert("Unable to start a session. Please try again.");
@@ -190,7 +187,7 @@ export default function StartButton() {
             <SettingsMenu
                 difficulty={levelToDifficulty(formData.difficulty)}
                 onDifficultyChange={handleDifficultyChange}
-                unlabeledMap={formData.unlabled_map}
+                unlabeledMap={formData.unlabeled_map}
                 onUnlabeledMapChange={handleUnlabeledMapChange}
                 roundCount={formData.round_count}
                 onRoundCountChange={handleRoundCountChange}
