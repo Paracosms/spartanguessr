@@ -51,8 +51,6 @@ export default function GuessButton({
             guess_longitude: coordinatesToSubmit.y,
         };
 
-        console.log(guess_packet);
-
         try {
             setIsSubmitting(true);
             const res = await fetch(`${API_BASE_URL}/guess`, {
@@ -74,8 +72,6 @@ export default function GuessButton({
                 actual_longitude: number;
                 game_complete?: boolean;
             };
-
-            console.log("SUCCESS", result);
 
             const gameComplete = result.game_complete === true || round_number >= max_rounds;
 

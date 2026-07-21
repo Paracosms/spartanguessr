@@ -174,7 +174,6 @@ export default function StartButton() {
 
             navigate("/game", { state: gameRouteState });
 
-            console.log("SUCCESS", result);
         } catch (err) {
             console.error("FAIL", err);
             alert("Unable to start a session. Please try again.");

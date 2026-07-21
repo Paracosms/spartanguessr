@@ -17,12 +17,6 @@ type MinimapProps = {
     actualPosition?: Point | null;
     showActualDot?: boolean;
 };
-declare global {
-    interface Window {
-        debug?: boolean;
-    }
-}
-
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
 const PIN_SIZE_PX = 30;
@@ -61,7 +55,6 @@ export default function Minimap({
     }));
     const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
-    const [debugEnabled, setDebugEnabled] = useState<boolean>(() => window.debug === true);
     const { scale, offset } = view;
     const dragStartRef = useRef({x:0, y:0});
     const dragMouseStartRef = useRef({x:0, y:0});
@@ -231,34 +224,6 @@ export default function Minimap({
         return () => window.removeEventListener("resize", reclamp);
     }, [minZoomFloor, initializeScaleToMinZoom]);
 
-    // Allows `debug = true/false` in the browser console to toggle debug UI
-    useEffect(() => {
-        const existingDescriptor = Object.getOwnPropertyDescriptor(window, "debug");
-
-        if (!existingDescriptor || existingDescriptor.configurable) {
-            let debugValue = window.debug === true;
-
-            Object.defineProperty(window, "debug", {
-                configurable: true,
-                get() {
-                    return debugValue;
-                },
-                set(value: boolean) {
-                    debugValue = Boolean(value);
-                    setDebugEnabled(debugValue);
-                },
-            });
-            return;
-        }
-
-        // Fallback if another script already defines a debug property.
-        const syncInterval = window.setInterval(() => {
-            setDebugEnabled(window.debug === true);
-        }, 250);
-
-        return () => window.clearInterval(syncInterval);
-    }, []);
-
     // Prevent trackpad pinch-to-zoom on the minimap
     useEffect(() => {
         const container = containerRef.current;
@@ -273,16 +238,6 @@ export default function Minimap({
     }, []);
 
     return <>
-        {debugEnabled && (
-            <>
-                <p className="text-white">Debug Coordinates: {offset.x}, {offset.y}</p>
-                <p className="text-white">Scale: {scale}</p>
-                <p className="text-white">Min Zoom: {minZoom}</p>
-                <p className="text-white">
-                    Pin: {pinPosition ? `${pinPosition.x}, ${pinPosition.y}` : "not placed"}
-                </p>
-            </>
-        )}
     <div
         ref={containerRef}
         onMouseDown={handleMouseDown}

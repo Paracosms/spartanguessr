@@ -114,7 +114,7 @@ export default function Results() {
         }
     }
 
-    async function returnToMainMenu() {
+    function returnToMainMenu() {
         navigate("/")
     }
 
