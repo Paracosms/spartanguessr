@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 import type { ScoreRouteState } from "../utils/types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { resolveApiUrl } from "../utils/api";
 const SCORE_MINIMAP_HEIGHT_VH = 0.80;
 
 function computeMinimapHeight() {
@@ -43,7 +42,7 @@ export default function Score() {
 		return null;
 	}
 
-	const backgroundImageUrl = imageUrl.startsWith("http") ? imageUrl : `${API_BASE_URL}${imageUrl}`;
+	const backgroundImageUrl = resolveApiUrl(imageUrl);
 
 	function handleContinue() {
 		if (isGameComplete) {
@@ -109,6 +108,7 @@ export default function Score() {
 					initializeScaleToMinZoom
 					actualPosition={actualPos}
 					showActualDot
+					showAlignmentLine
 				/>
 
 				<div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>

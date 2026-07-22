@@ -18,7 +18,12 @@ load_dotenv()
 app = Flask(__name__)
 
 allowed_origin = os.environ.get("ALLOWED_ORIGIN")
-CORS(app, origins=[allowed_origin, "http://localhost:5173"])
+CORS(app, origins=[
+    allowed_origin,
+    "http://localhost:5173",
+    # GitHub Pages sends this origin for https://paracosms.github.io/spartanguessr/.
+    "https://paracosms.github.io",
+])
 
 # setup database using environment variables
 redis = Redis.from_env()

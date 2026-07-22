@@ -2,18 +2,17 @@ import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import Background from "../assets/LeaderboardBackground.jpg";
 import type { ResultsRouteState } from "../utils/types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import {
+    getLeaderboard,
+    getLeaderboardQualification,
+    getSessionResults,
+    submitLeaderboardEntry,
+} from "../utils/api";
+import type { LeaderboardEntry } from "../utils/api";
 const BLUE = "#1176B9";
 const GOLD = "#FFC108";
 
 const RANK_COLORS: Record<number, string> = { 1: GOLD, 2: "#C0C0C0", 3: "#CD7F32" };
-
-type LeaderboardEntry = {
-    name: string;
-    score: number;
-    rank: number;
-};
 
 export default function Results() {
     const location = useLocation();
@@ -34,12 +33,9 @@ export default function Results() {
 
     async function checkQualification(score: number) {
         try {
-            const res = await fetch(`${API_BASE_URL}/leaderboard/qualify?score=${score}`);
-            if (res.ok) {
-                const data = await res.json();
-                setQualifies(data.qualifies);
-                setPosition(data.position);
-            }
+            const data = await getLeaderboardQualification(score);
+            setQualifies(data.qualifies);
+            setPosition(data.position);
         } catch (err) {
             console.error("Failed to check qualification:", err);
         }
@@ -47,11 +43,8 @@ export default function Results() {
 
     async function fetchLeaderboard() {
         try {
-            const res = await fetch(`${API_BASE_URL}/leaderboard`);
-            if (res.ok) {
-                const data = await res.json();
-                setLeaderboard(data);
-            }
+            const data = await getLeaderboard();
+            setLeaderboard(data);
         } catch (err) {
             console.error("Failed to fetch leaderboard:", err);
         }
@@ -68,12 +61,9 @@ export default function Results() {
 
             if (sessionId) {
                 try {
-                    const res = await fetch(`${API_BASE_URL}/session/${sessionId}/results`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (typeof data.total_score === "number" && Number.isFinite(data.total_score)) {
-                            resolvedScore = data.total_score;
-                        }
+                    const data = await getSessionResults(sessionId);
+                    if (typeof data.total_score === "number" && Number.isFinite(data.total_score)) {
+                        resolvedScore = data.total_score;
                     }
                 } catch (err) {
                     console.error("Failed to fetch server score:", err);
@@ -99,16 +89,11 @@ export default function Results() {
         if (!name.trim() || !sessionId) return;
 
         try {
-            const res = await fetch(`${API_BASE_URL}/leaderboard`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ session_id: sessionId, name: name.trim() }),
-            });
-            if (res.ok) {
-                setSubmitted(true);
-                if (submittedKey) sessionStorage.setItem(submittedKey, "true");
-                fetchLeaderboard();
-            }
+            const result = await submitLeaderboardEntry(sessionId, name.trim());
+            setPosition(result.position);
+            setSubmitted(true);
+            if (submittedKey) sessionStorage.setItem(submittedKey, "true");
+            void fetchLeaderboard();
         } catch (err) {
             console.error("Failed to submit score:", err);
         }

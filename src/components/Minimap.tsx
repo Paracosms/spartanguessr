@@ -12,11 +12,11 @@ type MinimapProps = {
     mapHeightPx?: number;
     initialScale?: number;
     initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
-    cssScale?: number; // scale of the wrapper div, used to correct pin placement math
     minZoomFloor?: number;
     initializeScaleToMinZoom?: boolean;
     actualPosition?: Point | null;
     showActualDot?: boolean;
+    showAlignmentLine?: boolean;
 };
 declare global {
     interface Window {
@@ -48,11 +48,11 @@ export default function Minimap({
     mapHeightPx,
     initialScale = INITIAL_SCALE,
     initialOffset = INITIAL_MAP_POS,
-    cssScale = 1,
     minZoomFloor,
     initializeScaleToMinZoom = false,
     actualPosition = null,
     showActualDot = false,
+    showAlignmentLine = false,
 }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
@@ -88,15 +88,26 @@ export default function Minimap({
         const container = containerRef.current;
         if (!container) return;
 
-        // Converts global to local mouse coordinates (divide by cssScale to fix pin offset when minimap is scaled)
+        // Convert the client position into the minimap's untransformed content
+        // coordinates. The minimap is wrapped in a CSS scale that transitions
+        // on hover, so use the actual rendered scale instead of a prop that can
+        // be one frame ahead of the transform.
         const rect = container.getBoundingClientRect();
-        const mouseX = round((e.clientX - rect.left) / cssScale, 0);
-        const mouseY = round((e.clientY - rect.top) / cssScale, 0);
+        const renderedScaleX = rect.width / container.offsetWidth;
+        const renderedScaleY = rect.height / container.offsetHeight;
+        if (!Number.isFinite(renderedScaleX) || !Number.isFinite(renderedScaleY) || renderedScaleX <= 0 || renderedScaleY <= 0) {
+            return;
+        }
+
+        // getBoundingClientRect starts at the border edge, while the map image
+        // and absolutely-positioned markers start at the inner content edge.
+        const mouseX = (e.clientX - rect.left) / renderedScaleX - container.clientLeft;
+        const mouseY = (e.clientY - rect.top) / renderedScaleY - container.clientTop;
 
         // Save pin in map coordinates so it remains anchored through zooms/pans
         onPinChange({
-            x: clamp(round((mouseX - offset.x) / scale, 0), 0, MINIMAP_WIDTH),
-            y: clamp(round((mouseY - offset.y) / scale, 0), 0, MINIMAP_HEIGHT),
+            x: clamp((mouseX - offset.x) / scale, 0, MINIMAP_WIDTH),
+            y: clamp((mouseY - offset.y) / scale, 0, MINIMAP_HEIGHT),
         });
     }
 
@@ -276,6 +287,19 @@ export default function Minimap({
         return () => container.removeEventListener("wheel", preventZoom);
     }, []);
 
+    const alignmentStart = pinPosition
+        ? { x: offset.x + pinPosition.x * scale, y: offset.y + pinPosition.y * scale }
+        : null;
+    const alignmentEnd = actualPosition
+        ? { x: offset.x + actualPosition.x * scale, y: offset.y + actualPosition.y * scale }
+        : null;
+    const alignmentLine = alignmentStart && alignmentEnd
+        ? {
+            length: Math.hypot(alignmentEnd.x - alignmentStart.x, alignmentEnd.y - alignmentStart.y),
+            angle: Math.atan2(alignmentEnd.y - alignmentStart.y, alignmentEnd.x - alignmentStart.x) * (180 / Math.PI),
+        }
+        : null;
+
     return <>
         {debugEnabled && (
             <>
@@ -316,7 +340,23 @@ export default function Minimap({
                 pointerEvents: "none",
             }}
         />
-        
+        {showAlignmentLine && alignmentStart && alignmentLine && (
+            <div
+                aria-hidden="true"
+                style={{
+                    position: "absolute",
+                    left: `${alignmentStart.x}px`,
+                    top: `${alignmentStart.y}px`,
+                    width: `${alignmentLine.length}px`,
+                    height: "2px",
+                    background: "#000",
+                    transformOrigin: "0 50%",
+                    transform: `rotate(${alignmentLine.angle}deg)`,
+                    pointerEvents: "none",
+                }}
+            />
+        )}
+
         {pinPosition && (
             <img
                 src={pin}
@@ -326,7 +366,7 @@ export default function Minimap({
                     position: "absolute",
                     left: `${offset.x + pinPosition.x * scale}px`,
                     top: `${offset.y + pinPosition.y * scale}px`,
-                    transform: "translate(-50%, -100%) translate(-6px, -2px)", // aj messed with pin translate
+                    transform: "translate(-50%, -100%)",
                     width: `${PIN_SIZE_PX / 1.5}px`,
                     pointerEvents: "none",
                     userSelect: "none",
@@ -344,11 +384,11 @@ export default function Minimap({
                     borderRadius: "50%",
                     background: "#ff3b30",
                     border: "2px solid white",
-                    transform: "translate(-50%, -50%) translate(-7px, -7px)",
+                    transform: "translate(-50%, -50%)",
                     pointerEvents: "none",
                     boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
                 }}
-            />
+                />
         )}
     </div>
 

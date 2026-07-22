@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { GameRouteState, Point } from "../utils/types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { ApiError, submitGuess } from "../utils/api";
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -55,25 +54,7 @@ export default function GuessButton({
 
         try {
             setIsSubmitting(true);
-            const res = await fetch(`${API_BASE_URL}/guess`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(guess_packet),
-            });
-
-            if (!res.ok) {
-                const errorResult = await res.json();
-                alert(`Error: ${errorResult.error || 'Unknown error'}`);
-                console.error("FAIL", `Server error: ${res.status}`, errorResult);
-                return;
-            }
-            const result = await res.json() as {
-                score: number;
-                total_score: number;
-                actual_latitude: number;
-                actual_longitude: number;
-                game_complete?: boolean;
-            };
+            const result = await submitGuess(guess_packet);
 
             console.log("SUCCESS", result);
 
@@ -99,6 +80,9 @@ export default function GuessButton({
             });
         } catch (err) {
             console.error("FAIL", err);
+            if (err instanceof ApiError) {
+                alert(`Error: ${err.message}`);
+            }
         } finally {
             setIsSubmitting(false);
         }
