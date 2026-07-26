@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 import type { ScoreRouteState } from "../utils/types";
-import { resolveApiUrl } from "../utils/api";
 const SCORE_MINIMAP_HEIGHT_VH = 0.80;
 
 function computeMinimapHeight() {
@@ -42,8 +41,6 @@ export default function Score() {
 		return null;
 	}
 
-	const backgroundImageUrl = resolveApiUrl(imageUrl);
-
 	function handleContinue() {
 		if (isGameComplete) {
 			navigate("/results", {
@@ -75,7 +72,7 @@ export default function Score() {
 				style={{
 					position: "absolute",
 					inset: 0,
-					backgroundImage: `url(${backgroundImageUrl})`,
+					backgroundImage: `url(${imageUrl})`,
 					backgroundSize: "cover",
 					backgroundPosition: "center",
 					filter: "blur(14px)",

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { GameRouteState, Point } from "../utils/types";
-import { ApiError, submitGuess } from "../utils/api";
+import { ApiError, submitGuess } from "../utils/api.tsx";
+import { preloadNextRoundImage } from "../utils/preloadGameAssets.tsx";
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -50,15 +51,15 @@ export default function GuessButton({
             guess_longitude: coordinatesToSubmit.y,
         };
 
-        console.log(guess_packet);
-
         try {
             setIsSubmitting(true);
             const result = await submitGuess(guess_packet);
 
-            console.log("SUCCESS", result);
-
             const gameComplete = result.game_complete === true || round_number >= max_rounds;
+
+            if (!gameComplete && session_id) {
+                void preloadNextRoundImage(session_id);
+            }
 
             navigate("/score", {
                 state: {

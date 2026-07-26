@@ -7,8 +7,8 @@ import {
     getLeaderboardQualification,
     getSessionResults,
     submitLeaderboardEntry,
-} from "../utils/api";
-import type { LeaderboardEntry } from "../utils/api";
+} from "../utils/api.tsx";
+import type { LeaderboardEntry } from "../utils/api.tsx";
 const BLUE = "#1176B9";
 const GOLD = "#FFC108";
 

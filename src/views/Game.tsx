@@ -3,7 +3,8 @@ import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
-import { ApiError, getRandomImage } from "../utils/api";
+import { ApiError, getRandomImage } from "../utils/api.tsx";
+import { consumePreloadedRoundImage } from "../utils/preloadGameAssets.tsx";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -70,6 +71,14 @@ export default function Game() {
         }
 
         try {
+            const preloaded = consumePreloadedRoundImage(sessionId);
+            if (preloaded) {
+                setRoundImageUrl(preloaded.imageUrl);
+                setRoundNumber(preloaded.roundNumber);
+                setTimeRemaining(roundTimerSeconds);
+                return;
+            }
+
             setRoundImageUrl(null);
             const randomImage = await getRandomImage(sessionId);
 

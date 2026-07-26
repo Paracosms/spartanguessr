@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SettingsMenu from "./SettingsMenu.tsx";
 import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
-import { ApiError, createSession } from "../utils/api";
+import { ApiError, createSession } from "../utils/api.tsx";
 import type { ApiDifficulty, GameRouteState } from "../utils/types";
 
 type DifficultyLabel = "Easy" | "Medium" | "Hard";
@@ -150,8 +150,6 @@ export default function StartButton() {
             };
 
             navigate("/game", { state: gameRouteState });
-
-            console.log("SUCCESS", result);
         } catch (err) {
             console.error("FAIL", err);
             alert(err instanceof ApiError ? err.message : "Unable to start a session. Please try again.");
