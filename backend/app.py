@@ -389,7 +389,7 @@ def submit_guess():
 
         if data["round_number"] != session.current_round:
             return jsonify({
-                "error": "Round out of sync. Request the current round image before guessing.",
+                "error": "Round out of sync. Please refresh the page or restart the game.",
                 "expected_round": session.current_round,
             }), 409
 
