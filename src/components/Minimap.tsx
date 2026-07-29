@@ -17,6 +17,8 @@ type MinimapProps = {
     actualPosition?: Point | null;
     showActualDot?: boolean;
     showAlignmentLine?: boolean;
+    heatmapPoints?: Point[];
+    heatmapDotSize?: number;
 };
 declare global {
     interface Window {
@@ -53,6 +55,8 @@ export default function Minimap({
     actualPosition = null,
     showActualDot = false,
     showAlignmentLine = false,
+    heatmapPoints = [],
+    heatmapDotSize = 10,
 }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
@@ -388,8 +392,26 @@ export default function Minimap({
                     pointerEvents: "none",
                     boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
                 }}
-                />
+            />
         )}
+        {heatmapPoints.map((point, index) => (
+            <div
+                key={index}
+                style={{
+                    position: "absolute",
+                    left: `${offset.x + point.x * scale}px`,
+                    top: `${offset.y + point.y * scale}px`,
+                    width: `${heatmapDotSize}px`,
+                    height: `${heatmapDotSize}px`,
+                    borderRadius: "50%",
+                    background: "#ff3b30",
+                    border: "1px solid white",
+                    transform: "translate(-50%, -50%)",
+                    pointerEvents: "none",
+                    boxShadow: "0 0 3px rgba(0, 0, 0, 0.6)",
+                }}
+            />
+        ))}
     </div>
 
     </>

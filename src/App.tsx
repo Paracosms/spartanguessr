@@ -3,6 +3,7 @@ import Logo from "./assets/SpartanguessrLogo.png";
 import { useEffect } from "react";
 import StartButton from "./components/StartButton.tsx";
 import Game from "./views/Game.tsx"
+import Heatmap from "./views/Heatmap.tsx";
 import Score from "./views/Score.tsx";
 import Results from "./views/Results.tsx";
 import {Routes, Route} from "react-router-dom";
@@ -34,6 +35,7 @@ function App() {
       <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/game" element={<Game />} />
+          <Route path="/heatmap" element={<Heatmap />} />
           <Route path="/score" element={<Score />} />
           <Route path="/results" element={<Results />} />
       </Routes>
