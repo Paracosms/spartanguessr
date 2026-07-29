@@ -7,6 +7,7 @@ export type ApiDifficulty = "easy" | "medium" | "hard";
 
 export type GameRouteState = {
     sessionId?: string;
+    expectedRound?: number;
     roundCount?: number;
     difficulty?: ApiDifficulty;
     unlabeledMap?: boolean;
@@ -28,6 +29,7 @@ export type ScoreRouteState = {
     image_url?: string;
     round_score?: number;
     round_number?: number;
+    next_round_number?: number | null;
     gameState?: GameRouteState;
     is_game_complete?: boolean;
     resultsState?: ResultsRouteState;

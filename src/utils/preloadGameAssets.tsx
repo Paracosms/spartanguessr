@@ -13,7 +13,10 @@ type CachedRoundImage = {
 };
 
 const preloadedRoundImages = new Map<string, CachedRoundImage>();
-const preloadingRoundImages = new Set<string>();
+const roundImageRequests = new Map<string, {
+    roundNumber: number;
+    promise: Promise<CachedRoundImage>;
+}>();
 
 function preloadImage(source: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -44,35 +47,94 @@ export function preloadGameAssets(): Promise<void> {
     return preloadPromise;
 }
 
-export async function preloadNextRoundImage(sessionId: string): Promise<void> {
-    if (preloadedRoundImages.has(sessionId) || preloadingRoundImages.has(sessionId)) {
-        return;
+function takeCachedRoundImage(sessionId: string, expectedRound: number): CachedRoundImage | null {
+    const cached = preloadedRoundImages.get(sessionId);
+    if (!cached) {
+        return null;
     }
 
-    preloadingRoundImages.add(sessionId);
-    try {
-        const randomImage = await getRandomImage(sessionId);
-        if (randomImage.completed) {
-            return;
-        }
-
-        await preloadImage(randomImage.image_url);
-        preloadedRoundImages.set(sessionId, {
-            imageUrl: randomImage.image_url,
-            roundNumber: randomImage.round_number,
-        });
-    } catch (err) {
-        console.warn("Failed to preload next round image:", err);
-    } finally {
-        preloadingRoundImages.delete(sessionId);
-    }
+    preloadedRoundImages.delete(sessionId);
+    return cached.roundNumber === expectedRound ? cached : null;
 }
 
-export function consumePreloadedRoundImage(sessionId: string): CachedRoundImage | null {
+function requestRoundImage(sessionId: string, expectedRound: number): Promise<CachedRoundImage> {
+    const existingRequest = roundImageRequests.get(sessionId);
+    if (existingRequest?.roundNumber === expectedRound) {
+        return existingRequest.promise;
+    }
+
+    const promise = getRandomImage(sessionId).then((randomImage) => {
+        if (randomImage.completed) {
+            throw new Error(`Game completed before round ${expectedRound} could be loaded.`);
+        }
+
+        if (randomImage.round_number !== expectedRound) {
+            throw new Error(
+                `Round image out of sync: expected ${expectedRound}, received ${randomImage.round_number}.`,
+            );
+        }
+
+        const roundImage = {
+            imageUrl: randomImage.image_url,
+            roundNumber: randomImage.round_number,
+        };
+
+        const activeRequest = roundImageRequests.get(sessionId);
+        if (activeRequest?.promise === promise) {
+            preloadedRoundImages.set(sessionId, roundImage);
+        }
+
+        // Image-byte loading is deliberately detached from metadata retrieval.
+        // The Game screen can render immediately and let its own <img> finish loading.
+        void preloadImage(roundImage.imageUrl).catch((err) => {
+            console.warn("Failed to warm next round image:", err);
+        });
+
+        return roundImage;
+    }).finally(() => {
+        const activeRequest = roundImageRequests.get(sessionId);
+        if (activeRequest?.promise === promise) {
+            roundImageRequests.delete(sessionId);
+        }
+    });
+
+    roundImageRequests.set(sessionId, { roundNumber: expectedRound, promise });
+    return promise;
+}
+
+export async function preloadNextRoundImage(sessionId: string, expectedRound: number): Promise<void> {
     const cached = preloadedRoundImages.get(sessionId);
+    if (cached?.roundNumber === expectedRound) {
+        return;
+    }
     if (cached) {
         preloadedRoundImages.delete(sessionId);
     }
-    return cached ?? null;
+
+    try {
+        await requestRoundImage(sessionId, expectedRound);
+    } catch (err) {
+        console.warn("Failed to preload next round image:", err);
+    }
+}
+
+export async function loadRoundImage(sessionId: string, expectedRound: number) {
+    const cached = takeCachedRoundImage(sessionId, expectedRound);
+    if (cached) {
+        return {
+            image_url: cached.imageUrl,
+            round_number: cached.roundNumber,
+            completed: false as const,
+        };
+    }
+
+    const roundImage = await requestRoundImage(sessionId, expectedRound);
+    takeCachedRoundImage(sessionId, expectedRound);
+
+    return {
+        image_url: roundImage.imageUrl,
+        round_number: roundImage.roundNumber,
+        completed: false as const,
+    };
 }
 

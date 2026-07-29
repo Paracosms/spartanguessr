@@ -4,7 +4,7 @@ import GuessButton from "../components/GuessButton";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 import { ApiError, getRandomImage } from "../utils/api.tsx";
-import { consumePreloadedRoundImage } from "../utils/preloadGameAssets.tsx";
+import { loadRoundImage } from "../utils/preloadGameAssets.tsx";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -29,6 +29,7 @@ export default function Game() {
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
     const sessionId = gameState?.sessionId ?? null;
+    const expectedRound = gameState?.expectedRound;
     const maxRounds =
         typeof requestedRoundCount === "number" && requestedRoundCount > 0
             ? requestedRoundCount
@@ -44,6 +45,7 @@ export default function Game() {
     const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
     const gameNavigationState: NonNullable<GameRouteState> = {
         sessionId: sessionId ?? undefined,
+        expectedRound,
         roundCount: maxRounds,
         difficulty,
         outsideOnly,
@@ -71,25 +73,17 @@ export default function Game() {
         }
 
         try {
-            const preloaded = consumePreloadedRoundImage(sessionId);
-            if (preloaded) {
-                setRoundImageUrl(preloaded.imageUrl);
-                setRoundNumber(preloaded.roundNumber);
-                setTimeRemaining(roundTimerSeconds);
-                return;
-            }
-
             setRoundImageUrl(null);
-            const randomImage = await getRandomImage(sessionId);
+            const roundImage = expectedRound != null
+                ? await loadRoundImage(sessionId, expectedRound)
+                : await getRandomImage(sessionId);
 
-            if (randomImage.completed) {
+            if (roundImage.completed) {
                 return;
             }
 
-            setRoundImageUrl(randomImage.image_url);
-            if (typeof randomImage.round_number === "number") {
-                setRoundNumber(randomImage.round_number);
-            }
+            setRoundImageUrl(roundImage.image_url);
+            setRoundNumber(roundImage.round_number);
             setTimeRemaining(roundTimerSeconds);
         } catch (err) {
             if (err instanceof ApiError && err.status === 404) {
@@ -98,7 +92,7 @@ export default function Game() {
             }
             console.error("FAIL", err);
         }
-    }, [navigate, roundTimerSeconds, sessionId]);
+    }, [expectedRound, navigate, roundTimerSeconds, sessionId]);
 
     useEffect(() => {
         if (!sessionId) {

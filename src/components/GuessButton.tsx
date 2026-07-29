@@ -57,8 +57,8 @@ export default function GuessButton({
 
             const gameComplete = result.game_complete === true || round_number >= max_rounds;
 
-            if (!gameComplete && session_id) {
-                void preloadNextRoundImage(session_id);
+            if (!gameComplete && session_id && result.next_round_number != null) {
+                void preloadNextRoundImage(session_id, result.next_round_number);
             }
 
             navigate("/score", {
@@ -68,6 +68,7 @@ export default function GuessButton({
                     image_url,
                     round_score: result.score,
                     round_number,
+                    next_round_number: result.next_round_number,
                     gameState,
                     is_game_complete: gameComplete,
                     resultsState: gameComplete

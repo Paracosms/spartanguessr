@@ -18,6 +18,7 @@ export default function Score() {
 	const gameState = routeState?.gameState;
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
+	const nextRoundNumber = routeState?.next_round_number;
 	const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
 
     const unlabeled = routeState?.gameState?.unlabeledMap ?? false;
@@ -53,7 +54,12 @@ export default function Score() {
 			return;
 		}
 
-		navigate("/game", { state: gameState });
+		navigate("/game", {
+			state: {
+				...gameState,
+				expectedRound: nextRoundNumber,
+			},
+		});
 	}
 
 	return (

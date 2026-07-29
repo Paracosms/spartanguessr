@@ -140,6 +140,7 @@ export default function StartButton() {
 
             const gameRouteState: NonNullable<GameRouteState> = {
                 sessionId: result.session_id,
+                expectedRound: result.current_round,
                 roundCount: effectiveSettings.round_count,
                 difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
                 unlabeledMap: effectiveSettings.unlabeled_map,
