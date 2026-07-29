@@ -18,7 +18,10 @@ load_dotenv()
 app = Flask(__name__)
 
 allowed_origin = os.environ.get("ALLOWED_ORIGIN")
-CORS(app, origins=[allowed_origin, "http://localhost:5173"])
+CORS(app, origins=[
+    allowed_origin,
+    "http://localhost:5173",
+])
 
 # setup database using environment variables
 redis = Redis.from_env()
@@ -386,7 +389,7 @@ def submit_guess():
 
         if data["round_number"] != session.current_round:
             return jsonify({
-                "error": "Round out of sync. Request the current round image before guessing.",
+                "error": "Round out of sync. Please refresh the page or restart the game.",
                 "expected_round": session.current_round,
             }), 409
 

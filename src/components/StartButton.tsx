@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import SettingsMenu from "./SettingsMenu.tsx";
 import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
+import { ApiError, createSession } from "../utils/api.tsx";
 import type { ApiDifficulty, GameRouteState } from "../utils/types";
 
 type DifficultyLabel = "Easy" | "Medium" | "Hard";
@@ -15,8 +16,6 @@ type GameFormData = {
     outside_only: boolean;
     leaderboard_mode: boolean;
 };
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
@@ -131,35 +130,13 @@ export default function StartButton() {
         const normalizedSeed = effectiveSettings.seed.trim() || generateRandomSeed();
 
         try {
-            const res = await fetch(`${API_BASE_URL}/session`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
-                    max_rounds: effectiveSettings.round_count,
-                    outside_only: effectiveSettings.outside_only,
-                    ...(!effectiveSettings.leaderboard_mode && { seed: normalizedSeed }),
-                    leaderboard_mode: effectiveSettings.leaderboard_mode,
-                }),
+            const result = await createSession({
+                difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
+                max_rounds: effectiveSettings.round_count,
+                outside_only: effectiveSettings.outside_only,
+                ...(!effectiveSettings.leaderboard_mode && { seed: normalizedSeed }),
+                leaderboard_mode: effectiveSettings.leaderboard_mode,
             });
-
-            if (!res.ok) {
-                let serverMessage = "Unable to start a session. Please try again.";
-                try {
-                    const errorBody = (await res.json()) as { error?: string };
-                    if (errorBody?.error) {
-                        serverMessage = errorBody.error;
-                    }
-                } catch {
-                    // Ignore non-JSON responses and keep the default message.
-                }
-
-                console.error("FAIL", `Server error: ${res.status}`, serverMessage);
-                alert(serverMessage);
-                return;
-            }
-
-            const result = (await res.json()) as { session_id: string };
 
             const gameRouteState: NonNullable<GameRouteState> = {
                 sessionId: result.session_id,
@@ -173,10 +150,9 @@ export default function StartButton() {
             };
 
             navigate("/game", { state: gameRouteState });
-
         } catch (err) {
             console.error("FAIL", err);
-            alert("Unable to start a session. Please try again.");
+            alert(err instanceof ApiError ? err.message : "Unable to start a session. Please try again.");
         }
     }
 

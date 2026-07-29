@@ -16,6 +16,9 @@ type MinimapProps = {
     initializeScaleToMinZoom?: boolean;
     actualPosition?: Point | null;
     showActualDot?: boolean;
+    showAlignmentLine?: boolean;
+    heatmapPoints?: Point[];
+    heatmapDotSize?: number;
 };
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
@@ -46,6 +49,9 @@ export default function Minimap({
     initializeScaleToMinZoom = false,
     actualPosition = null,
     showActualDot = false,
+    showAlignmentLine = false,
+    heatmapPoints = [],
+    heatmapDotSize = 10,
 }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
@@ -80,11 +86,26 @@ export default function Minimap({
         const container = containerRef.current;
         if (!container) return;
 
-        const mouse = getLocalPoint(container, e.clientX, e.clientY);
+        // Convert the client position into the minimap's untransformed content
+        // coordinates. The minimap is wrapped in a CSS scale that transitions
+        // on hover, so use the actual rendered scale instead of a prop that can
+        // be one frame ahead of the transform.
+        const rect = container.getBoundingClientRect();
+        const renderedScaleX = rect.width / container.offsetWidth;
+        const renderedScaleY = rect.height / container.offsetHeight;
+        if (!Number.isFinite(renderedScaleX) || !Number.isFinite(renderedScaleY) || renderedScaleX <= 0 || renderedScaleY <= 0) {
+            return;
+        }
+
+        // getBoundingClientRect starts at the border edge, while the map image
+        // and absolutely-positioned markers start at the inner content edge.
+        const mouseX = (e.clientX - rect.left) / renderedScaleX - container.clientLeft;
+        const mouseY = (e.clientY - rect.top) / renderedScaleY - container.clientTop;
+
         // Save pin in map coordinates so it remains anchored through zooms/pans
         onPinChange({
-            x: clamp(round((mouse.x - offset.x) / scale, 4), 0, MINIMAP_WIDTH),
-            y: clamp(round((mouse.y - offset.y) / scale, 4), 0, MINIMAP_HEIGHT),
+            x: clamp((mouseX - offset.x) / scale, 0, MINIMAP_WIDTH),
+            y: clamp((mouseY - offset.y) / scale, 0, MINIMAP_HEIGHT),
         });
     }
 
@@ -237,6 +258,19 @@ export default function Minimap({
         return () => container.removeEventListener("wheel", preventZoom);
     }, []);
 
+    const alignmentStart = pinPosition
+        ? { x: offset.x + pinPosition.x * scale, y: offset.y + pinPosition.y * scale }
+        : null;
+    const alignmentEnd = actualPosition
+        ? { x: offset.x + actualPosition.x * scale, y: offset.y + actualPosition.y * scale }
+        : null;
+    const alignmentLine = alignmentStart && alignmentEnd
+        ? {
+            length: Math.hypot(alignmentEnd.x - alignmentStart.x, alignmentEnd.y - alignmentStart.y),
+            angle: Math.atan2(alignmentEnd.y - alignmentStart.y, alignmentEnd.x - alignmentStart.x) * (180 / Math.PI),
+        }
+        : null;
+
     return <>
     <div
         ref={containerRef}
@@ -263,7 +297,25 @@ export default function Minimap({
                 transformOrigin: "top left",
                 pointerEvents: "none",
             }}
-        >
+        />
+        {showAlignmentLine && alignmentStart && alignmentLine && (
+            <div
+                aria-hidden="true"
+                style={{
+                    position: "absolute",
+                    left: `${alignmentStart.x}px`,
+                    top: `${alignmentStart.y}px`,
+                    width: `${alignmentLine.length}px`,
+                    height: "2px",
+                    background: "#000",
+                    transformOrigin: "0 50%",
+                    transform: `rotate(${alignmentLine.angle}deg)`,
+                    pointerEvents: "none",
+                }}
+            />
+        )}
+
+        {pinPosition && (
             <img
                 className={"minimap-img"}
                 src={unlabeled ? mapUnlabeled : mapLabeled}
@@ -271,47 +323,51 @@ export default function Minimap({
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 style={{
-                    display: "block",
-                    width: "100%",
-                    height: "100%",
+                    position: "absolute",
+                    left: `${offset.x + pinPosition.x * scale}px`,
+                    top: `${offset.y + pinPosition.y * scale}px`,
+                    transform: "translate(-50%, -100%)",
+                    width: `${PIN_SIZE_PX / 1.5}px`,
+                    pointerEvents: "none",
                     userSelect: "none",
                 }}
             />
-
-            {pinPosition && (
-                <img
-                    src={pin}
-                    alt="Selected location"
-                    draggable={false}
-                    style={{
-                        position: "absolute",
-                        left: `${pinPosition.x}px`,
-                        top: `${pinPosition.y}px`,
-                        transform: `scale(${1 / scale}) translate(${-PIN_TIP_X_PERCENT}%, -100%)`,
-                        transformOrigin: "top left",
-                        width: `${PIN_SIZE_PX / 1.5}px`,
-                        userSelect: "none",
-                    }}
-                />
-            )}
-            {showActualDot && actualPosition && (
-                <div
-                    style={{
-                        position: "absolute",
-                        left: `${actualPosition.x}px`,
-                        top: `${actualPosition.y}px`,
-                        width: "20px",
-                        height: "20px",
-                        borderRadius: "50%",
-                        background: "#ff3b30",
-                        border: "2px solid white",
-                        transform: `scale(${1 / scale}) translate(-50%, -50%)`,
-                        transformOrigin: "top left",
-                        boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
-                    }}
-                />
-            )}
-        </div>
+        )}
+        {showActualDot && actualPosition && (
+            <div
+                style={{
+                    position: "absolute",
+                    left: `${offset.x + actualPosition.x * scale}px`,
+                    top: `${offset.y + actualPosition.y * scale}px`,
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "50%",
+                    background: "#ff3b30",
+                    border: "2px solid white",
+                    transform: "translate(-50%, -50%)",
+                    pointerEvents: "none",
+                    boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
+                }}
+            />
+        )}
+        {heatmapPoints.map((point, index) => (
+            <div
+                key={index}
+                style={{
+                    position: "absolute",
+                    left: `${offset.x + point.x * scale}px`,
+                    top: `${offset.y + point.y * scale}px`,
+                    width: `${heatmapDotSize}px`,
+                    height: `${heatmapDotSize}px`,
+                    borderRadius: "50%",
+                    background: "#ff3b30",
+                    border: "1px solid white",
+                    transform: "translate(-50%, -50%)",
+                    pointerEvents: "none",
+                    boxShadow: "0 0 3px rgba(0, 0, 0, 0.6)",
+                }}
+            />
+        ))}
     </div>
 
     </>

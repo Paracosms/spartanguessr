@@ -3,8 +3,8 @@ import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { ApiError, getRandomImage } from "../utils/api.tsx";
+import { consumePreloadedRoundImage } from "../utils/preloadGameAssets.tsx";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -71,28 +71,16 @@ export default function Game() {
         }
 
         try {
-            setRoundImageUrl(null);
-            const params = new URLSearchParams();
-            params.set("session_id", sessionId);
-
-            const randomImageRes = await fetch(`${API_BASE_URL}/random-image?${params.toString()}`);
-            if (!randomImageRes.ok) {
-                if (randomImageRes.status === 404) {
-                    navigate("/", { replace: true });
-                    return;
-                }
-                console.error("FAIL", `Unable to get random image: ${randomImageRes.status}`);
+            const preloaded = consumePreloadedRoundImage(sessionId);
+            if (preloaded) {
+                setRoundImageUrl(preloaded.imageUrl);
+                setRoundNumber(preloaded.roundNumber);
+                setTimeRemaining(roundTimerSeconds);
                 return;
             }
 
-            const randomImage = (await randomImageRes.json()) as {
-                completed?: boolean;
-                difficulty: string;
-                location: string;
-                image: string;
-                image_url: string;
-                round_number?: number;
-            };
+            setRoundImageUrl(null);
+            const randomImage = await getRandomImage(sessionId);
 
             if (randomImage.completed) {
                 return;
@@ -104,6 +92,10 @@ export default function Game() {
             }
             setTimeRemaining(roundTimerSeconds);
         } catch (err) {
+            if (err instanceof ApiError && err.status === 404) {
+                navigate("/", { replace: true });
+                return;
+            }
             console.error("FAIL", err);
         }
     }, [navigate, roundTimerSeconds, sessionId]);
