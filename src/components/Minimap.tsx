@@ -258,12 +258,8 @@ export default function Minimap({
         return () => container.removeEventListener("wheel", preventZoom);
     }, []);
 
-    const alignmentStart = pinPosition
-        ? { x: offset.x + pinPosition.x * scale, y: offset.y + pinPosition.y * scale }
-        : null;
-    const alignmentEnd = actualPosition
-        ? { x: offset.x + actualPosition.x * scale, y: offset.y + actualPosition.y * scale }
-        : null;
+    const alignmentStart = pinPosition;
+    const alignmentEnd = actualPosition;
     const alignmentLine = alignmentStart && alignmentEnd
         ? {
             length: Math.hypot(alignmentEnd.x - alignmentStart.x, alignmentEnd.y - alignmentStart.y),
@@ -297,77 +293,89 @@ export default function Minimap({
                 transformOrigin: "top left",
                 pointerEvents: "none",
             }}
-        />
-        {showAlignmentLine && alignmentStart && alignmentLine && (
-            <div
-                aria-hidden="true"
-                style={{
-                    position: "absolute",
-                    left: `${alignmentStart.x}px`,
-                    top: `${alignmentStart.y}px`,
-                    width: `${alignmentLine.length}px`,
-                    height: "2px",
-                    background: "#000",
-                    transformOrigin: "0 50%",
-                    transform: `rotate(${alignmentLine.angle}deg)`,
-                    pointerEvents: "none",
-                }}
-            />
-        )}
-
-        {pinPosition && (
+        >
             <img
-                className={"minimap-img"}
+                className="minimap-img"
                 src={unlabeled ? mapUnlabeled : mapLabeled}
                 alt="Campus Minimap"
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 style={{
-                    position: "absolute",
-                    left: `${offset.x + pinPosition.x * scale}px`,
-                    top: `${offset.y + pinPosition.y * scale}px`,
-                    transform: "translate(-50%, -100%)",
-                    width: `${PIN_SIZE_PX / 1.5}px`,
-                    pointerEvents: "none",
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
                     userSelect: "none",
                 }}
             />
-        )}
-        {showActualDot && actualPosition && (
-            <div
-                style={{
-                    position: "absolute",
-                    left: `${offset.x + actualPosition.x * scale}px`,
-                    top: `${offset.y + actualPosition.y * scale}px`,
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "50%",
-                    background: "#ff3b30",
-                    border: "2px solid white",
-                    transform: "translate(-50%, -50%)",
-                    pointerEvents: "none",
-                    boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
-                }}
-            />
-        )}
-        {heatmapPoints.map((point, index) => (
-            <div
-                key={index}
-                style={{
-                    position: "absolute",
-                    left: `${offset.x + point.x * scale}px`,
-                    top: `${offset.y + point.y * scale}px`,
-                    width: `${heatmapDotSize}px`,
-                    height: `${heatmapDotSize}px`,
-                    borderRadius: "50%",
-                    background: "#ff3b30",
-                    border: "1px solid white",
-                    transform: "translate(-50%, -50%)",
-                    pointerEvents: "none",
-                    boxShadow: "0 0 3px rgba(0, 0, 0, 0.6)",
-                }}
-            />
-        ))}
+
+            {showAlignmentLine && alignmentStart && alignmentLine && (
+                <div
+                    aria-hidden="true"
+                    style={{
+                        position: "absolute",
+                        left: `${alignmentStart.x}px`,
+                        top: `${alignmentStart.y}px`,
+                        width: `${alignmentLine.length}px`,
+                        height: `${2 / scale}px`,
+                        background: "#000",
+                        transformOrigin: "0 50%",
+                        transform: `rotate(${alignmentLine.angle}deg)`,
+                    }}
+                />
+            )}
+
+            {pinPosition && (
+                <img
+                    src={pin}
+                    alt="Selected location"
+                    draggable={false}
+                    style={{
+                        position: "absolute",
+                        left: `${pinPosition.x}px`,
+                        top: `${pinPosition.y}px`,
+                        transform: `scale(${1 / scale}) translate(${-PIN_TIP_X_PERCENT}%, -100%)`,
+                        transformOrigin: "top left",
+                        width: `${PIN_SIZE_PX / 1.5}px`,
+                        userSelect: "none",
+                    }}
+                />
+            )}
+            {showActualDot && actualPosition && (
+                <div
+                    style={{
+                        position: "absolute",
+                        left: `${actualPosition.x}px`,
+                        top: `${actualPosition.y}px`,
+                        width: "20px",
+                        height: "20px",
+                        borderRadius: "50%",
+                        background: "#ff3b30",
+                        border: "2px solid white",
+                        transform: `scale(${1 / scale}) translate(-50%, -50%)`,
+                        transformOrigin: "top left",
+                        boxShadow: "0 0 6px rgba(0, 0, 0, 0.6)",
+                    }}
+                />
+            )}
+            {heatmapPoints.map((point, index) => (
+                <div
+                    key={index}
+                    style={{
+                        position: "absolute",
+                        left: `${point.x}px`,
+                        top: `${point.y}px`,
+                        width: `${heatmapDotSize}px`,
+                        height: `${heatmapDotSize}px`,
+                        borderRadius: "50%",
+                        background: "#ff3b30",
+                        border: "1px solid white",
+                        transform: `scale(${1 / scale}) translate(-50%, -50%)`,
+                        transformOrigin: "top left",
+                        boxShadow: "0 0 3px rgba(0, 0, 0, 0.6)",
+                    }}
+                />
+            ))}
+        </div>
     </div>
 
     </>

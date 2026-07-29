@@ -81,9 +81,10 @@ export default function GuessButton({
             });
         } catch (err) {
             console.error("FAIL", err);
-            if (err instanceof ApiError) {
-                alert(`Error: ${err.message}`);
-            }
+            const message = err instanceof ApiError
+                ? err.message
+                : "Unable to submit your guess. Please try again.";
+            alert(`Error: ${message}`);
         } finally {
             setIsSubmitting(false);
         }
