@@ -1,45 +1,127 @@
 import os
 import random
 import json
+import math
 import uuid
 import secrets
 import time
+import tempfile
+from datetime import UTC, datetime
+from functools import wraps
+from urllib.parse import urlsplit
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
+from werkzeug.middleware.proxy_fix import ProxyFix
 from roundTracking import get_round_difficulty
 from score_algorithm import score_algorithm
 from models import GameSession, Guess
-from image_catalog import load_image_catalog
+from image_catalog import MAP_HEIGHT, MAP_WIDTH, load_image_catalog
 from upstash_redis import Redis
 
 load_dotenv()
 
+
+def required_environment(name):
+    value = os.environ.get(name, "")
+    if not value.strip():
+        raise RuntimeError(f"{name} is required.")
+    if value != value.strip():
+        raise RuntimeError(f"{name} must not have leading or trailing whitespace.")
+    return value
+
+
+def validated_url(name):
+    value = required_environment(name).rstrip("/")
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError(f"{name} must be an absolute HTTP(S) URL.")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise RuntimeError(f"{name} must not contain credentials, a query string, or a fragment.")
+    return value
+
+
+def validated_positive_integer(name, default, maximum):
+    raw_value = os.environ.get(name, str(default)).strip()
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer.") from exc
+    if not 1 <= value <= maximum:
+        raise RuntimeError(f"{name} must be between 1 and {maximum}.")
+    return value
+
+
+def validated_allowed_origins():
+    raw_origins = os.environ.get("ALLOWED_ORIGINS")
+    if raw_origins is None:
+        raw_origins = required_environment("ALLOWED_ORIGIN")
+    origins = []
+    for raw_origin in raw_origins.split(","):
+        origin = raw_origin.strip()
+        if not origin:
+            raise RuntimeError("Allowed frontend origins must not contain empty entries.")
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+            or "*" in origin
+        ):
+            raise RuntimeError("Allowed frontend origins must be exact HTTP(S) origins.")
+        normalized = origin.rstrip("/")
+        if normalized not in origins:
+            origins.append(normalized)
+    return origins
+
+
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=0,
+    x_port=0,
+    x_prefix=0,
+)
 
-allowed_origin = os.environ.get("ALLOWED_ORIGIN")
-CORS(app, origins=[
-    allowed_origin,
-    "http://localhost:5173",
-])
+UPSTASH_REDIS_REST_URL = validated_url("UPSTASH_REDIS_REST_URL")
+UPSTASH_REDIS_REST_TOKEN = required_environment("UPSTASH_REDIS_REST_TOKEN")
+IMAGE_CATALOG_PATH = required_environment("IMAGE_CATALOG_PATH")
+IMAGE_CDN_BASE_URL = validated_url("IMAGE_CDN_BASE_URL")
+ALLOWED_ORIGINS = validated_allowed_origins()
+APP_VERSION = required_environment("APP_VERSION")
+INSTANCE_ID = required_environment("INSTANCE_ID")
+REDIS_KEY_PREFIX = required_environment("REDIS_KEY_PREFIX")
+if any(character.isspace() or ord(character) < 32 for character in REDIS_KEY_PREFIX):
+    raise RuntimeError("REDIS_KEY_PREFIX must not contain whitespace or control characters.")
+RATE_LIMIT_SECONDS = validated_positive_integer("RATE_LIMIT_SECONDS", 1, 3600)
+RATE_LIMIT_REQUESTS = validated_positive_integer("RATE_LIMIT_REQUESTS", 5, 100000)
+DRAIN_FILE = os.environ.get(
+    "DRAIN_FILE",
+    os.path.join(tempfile.gettempdir(), "spartanguessr-draining"),
+).strip()
+if not DRAIN_FILE:
+    raise RuntimeError("DRAIN_FILE must not be empty.")
 
-# setup database using environment variables
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=False, send_wildcard=False)
+
+# setup database using validated environment variables
 redis = Redis.from_env()
 
-LEADERBOARD_KEY = "leaderboard"
+LEADERBOARD_KEY = f"{REDIS_KEY_PREFIX}leaderboard"
 MAX_LEADERBOARD_SIZE = 50
 SESSION_LOCK_TTL_SECONDS = 10
 SESSION_TTL_SECONDS = 60 * 60 # sessions expire after 1 hr
-RATE_LIMIT_SECONDS = 1
-RATE_LIMIT_REQUESTS = 5
 # rate limit: RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS per IP address (e.g. 5 requests per second per IP)
 
-IMAGE_CATALOG_PATH = os.environ.get("IMAGE_CATALOG_PATH")
-IMAGE_CDN_BASE_URL = os.environ.get("IMAGE_CDN_BASE_URL", "").rstrip("/")
-if not IMAGE_CDN_BASE_URL:
-    raise RuntimeError("IMAGE_CDN_BASE_URL is required.")
 image_by_id, image_ids_by_bucket = load_image_catalog(IMAGE_CATALOG_PATH)
-app.logger.info("Validated private image catalog with %d records", len(image_by_id))
+STARTUP_READY = bool(image_by_id and image_ids_by_bucket)
 
 # random 64 character string for session id to prevent guessing and collisions
 def generate_session_id():
@@ -59,7 +141,7 @@ def is_rate_limited():
     """Allow up to RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS for each IP."""
     client_ip = request.remote_addr or "unknown"
     window = int(time.time() // RATE_LIMIT_SECONDS)
-    key = f"rate-limit:{client_ip}:{window}"
+    key = f"{REDIS_KEY_PREFIX}rate-limit:{client_ip}:{window}"
 
     try:
         request_count = int(redis.incr(key))
@@ -68,15 +150,53 @@ def is_rate_limited():
     except Exception:
         # A limiter outage should not make the game unavailable. The Redis-backed
         # session operations below still fail normally when Redis is unavailable.
-        app.logger.exception("Rate limiter unavailable")
+        app.logger.warning("Rate limiter unavailable")
         return False
 
     return request_count > RATE_LIMIT_REQUESTS
 
 @app.before_request
+def start_request():
+    request.request_id = uuid.uuid4().hex
+    request.started_at = time.perf_counter()
+
+
+@app.before_request
 def enforce_rate_limit():
+    if request.endpoint in {"health", "ready"}:
+        return None
     if is_rate_limited():
         return jsonify({"error": "Rate limit exceeded. Try again shortly."}), 429
+
+
+@app.after_request
+def log_request(response):
+    duration_ms = round((time.perf_counter() - request.started_at) * 1000, 3)
+    route_template = request.url_rule.rule if request.url_rule is not None else "unmatched"
+    record = {
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "request_id": request.request_id,
+        "method": request.method,
+        "route": route_template,
+        "status": response.status_code,
+        "duration_ms": duration_ms,
+        "app_version": APP_VERSION,
+        "instance_id": INSTANCE_ID,
+    }
+    app.logger.info(json.dumps(record, separators=(",", ":"), sort_keys=True))
+    response.headers["X-Request-ID"] = request.request_id
+    return response
+
+
+def redis_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        try:
+            return view(*args, **kwargs)
+        except Exception:
+            app.logger.warning("Redis operation failed")
+            return jsonify({"error": "Service temporarily unavailable."}), 503
+    return wrapped
 
 def encode_leaderboard_member(session_id, name):
     return json.dumps({
@@ -111,44 +231,35 @@ def get_leaderboard_position_for_score(score):
 
     return True, 1
 
-# error debugging (i hate redis)
-def format_redis_error(err):
-    message = str(err).strip() or err.__class__.__name__
-    lowered = message.lower()
-
-    if "401" in lowered or "403" in lowered or "unauthorized" in lowered or "forbidden" in lowered:
-        return "Redis authentication failed. Verify UPSTASH_REDIS_REST_TOKEN."
-    if "name or service not known" in lowered or "failed to resolve" in lowered or "dns" in lowered:
-        return "Redis URL is invalid or unreachable. Verify UPSTASH_REDIS_REST_URL."
-    if "timed out" in lowered or "timeout" in lowered or "connection" in lowered:
-        return "Redis connection failed. Check Upstash availability and Render outbound network access."
-    return f"Redis request failed: {message}"
-
 # locking to prevent simultaneous requests and race condition
 def acquire_session_lock(session_id):
-    lock_key = f"session:{session_id}:lock"
+    lock_key = f"{REDIS_KEY_PREFIX}session:{session_id}:lock"
     lock_token = uuid.uuid4().hex
     acquired = redis.set(lock_key, lock_token, nx=True, ex=SESSION_LOCK_TTL_SECONDS)
     if not acquired:
         return None
     return lock_token
 
+_RELEASE_LOCK_SCRIPT = (
+    "if redis.call('get', KEYS[1]) == ARGV[1] then "
+    "return redis.call('del', KEYS[1]) "
+    "else "
+    "return 0 end"
+)
+
 # unlock
 def release_session_lock(session_id, lock_token):
-    lock_key = f"session:{session_id}:lock"
+    lock_key = f"{REDIS_KEY_PREFIX}session:{session_id}:lock"
     try:
-        current_value = redis.get(lock_key)
-        if current_value == lock_token:
-            redis.delete(lock_key)
+        redis.eval(_RELEASE_LOCK_SCRIPT, keys=[lock_key], args=[lock_token])
     except Exception:
-        # lock if failed
         pass
 
 # save the session JSON with the configured ttl
 def save_session(session):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
-    key = f"session:{session.session_id}"
+    key = f"{REDIS_KEY_PREFIX}session:{session.session_id}"
     session_json = json.dumps(session.to_dict())
     redis.set(key, session_json, ex=SESSION_TTL_SECONDS)
 
@@ -156,7 +267,7 @@ def save_session(session):
 def load_session(session_id):
     if redis is None:
         raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
-    key = f"session:{session_id}"
+    key = f"{REDIS_KEY_PREFIX}session:{session_id}"
     raw = redis.get(key)
     if not raw:
         return None
@@ -168,13 +279,13 @@ def load_session(session_id):
 
 # you can read the function name can't you?
 def save_guess(guess):
-    key = f"session:{guess.session_id}:guesses"
+    key = f"{REDIS_KEY_PREFIX}session:{guess.session_id}:guesses"
     redis.lpush(key, guess.to_json())
     redis.expire(key, SESSION_TTL_SECONDS) # match session ttl so guesses don't outlive their session
 
 # all guesses for a given session
 def load_guesses(session_id):
-    key = f"session:{session_id}:guesses"
+    key = f"{REDIS_KEY_PREFIX}session:{session_id}:guesses"
     guess_jsons = redis.lrange(key, 0, -1)
     return [Guess.from_json(g) for g in reversed(guess_jsons)]
 
@@ -225,9 +336,22 @@ def build_round_image(session):
 def health():
     return jsonify({"status": "ok"}), 200
 
+
+@app.route("/ready")
+def ready():
+    if not STARTUP_READY or os.path.exists(DRAIN_FILE):
+        return jsonify({"status": "unavailable"}), 503
+    try:
+        redis.ping()
+    except Exception:
+        return jsonify({"status": "unavailable"}), 503
+    return jsonify({"status": "ready"}), 200
+
+
 #GET /random-image
 # Get the active round's direct CDN image URL.
 @app.route("/random-image")
+@redis_required
 def random_image():
     session_id = request.args.get("session_id", type=str)
     if not session_id:
@@ -276,6 +400,7 @@ def random_image():
 # Start a new game session
 # Body: { "difficulty": "medium", "max_rounds": 5, "outside_only": false }
 @app.route("/session", methods=["POST"])
+@redis_required
 def create_session():
     data = request.get_json()
     if not data:
@@ -316,12 +441,9 @@ def create_session():
             leaderboard_mode=leaderboard_mode,
         )
         save_session(session)
-    except RuntimeError as err:
-        app.logger.error(str(err))
-        return jsonify({"error": str(err)}), 503
-    except Exception as err:
-        app.logger.exception("Failed to create session")
-        return jsonify({"error": format_redis_error(err)}), 503
+    except Exception:
+        app.logger.warning("Redis operation failed")
+        return jsonify({"error": "Service temporarily unavailable."}), 503
 
     response = {
         "session_id": session.session_id,
@@ -341,6 +463,7 @@ def create_session():
 # GET /session/<session_id>
 # Return current server-side state for a session.
 @app.route("/session/<session_id>", methods=["GET"])
+@redis_required
 def get_session_state(session_id):
     session = load_session(session_id)
     if not session:
@@ -364,6 +487,7 @@ def get_session_state(session_id):
 # Body: { "session_id": 1, "round_number": 1,
 #         "guess_latitude": 37.33, "guess_longitude": -121.88 }
 @app.route("/guess", methods=["POST"])
+@redis_required
 def submit_guess():
     data = request.get_json(silent=True)
     if not data:
@@ -373,6 +497,21 @@ def submit_guess():
     missing = [f for f in required if f not in data]
     if missing:
         return jsonify({"error": f"Missing fields: {', '.join(missing)}. Pin must be placed before submitting."}), 400
+
+    guess_lat = data.get("guess_latitude")
+    guess_lng = data.get("guess_longitude")
+    coordinates_are_valid = (
+        not isinstance(guess_lat, bool)
+        and isinstance(guess_lat, (int, float))
+        and math.isfinite(guess_lat)
+        and 0 <= guess_lat <= MAP_WIDTH
+        and not isinstance(guess_lng, bool)
+        and isinstance(guess_lng, (int, float))
+        and math.isfinite(guess_lng)
+        and 0 <= guess_lng <= MAP_HEIGHT
+    )
+    if not coordinates_are_valid:
+        return jsonify({"error": "Coordinates must be finite and within the map bounds."}), 400
 
     session_id = data["session_id"]
     lock_token = acquire_session_lock(session_id)
@@ -401,12 +540,6 @@ def submit_guess():
         if not image_record:
             return jsonify({"error": "Active round image is unavailable."}), 409
         coordinates = (image_record["x"], image_record["y"])
-
-        guess_lat = data.get("guess_latitude")
-        guess_lng = data.get("guess_longitude")
-
-        if guess_lat is None or guess_lng is None:
-            return jsonify({"error": "Missing coordinates"}), 400
 
         # Calculate distance and score
         score, distance_meters = score_algorithm(
@@ -456,6 +589,7 @@ def submit_guess():
 # GET /session/<session_id>/results
 # Get all round results for a session (final summary)
 @app.route("/session/<session_id>/results")
+@redis_required
 def get_results(session_id):
     session = load_session(session_id)
     if not session:
@@ -486,6 +620,7 @@ def get_results(session_id):
 # GET /leaderboard
 # Returns top 50 scores with ranks (tied scores share same rank)
 @app.route("/leaderboard")
+@redis_required
 def get_leaderboard():
     results = redis.zrange(LEADERBOARD_KEY, 0, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
 
@@ -506,6 +641,7 @@ def get_leaderboard():
 # GET /leaderboard/qualify?score=<score>
 # Check if a score qualifies for top 50
 @app.route("/leaderboard/qualify")
+@redis_required
 def check_qualify():
     score = request.args.get("score", type=int)
     if score is None:
@@ -519,6 +655,7 @@ def check_qualify():
 # Add a completed leaderboard-mode session's server-calculated score to the leaderboard.
 # Body: { "session_id": "session_id", "name": "player_name" }
 @app.route("/leaderboard", methods=["POST"])
+@redis_required
 def add_to_leaderboard():
     data = request.get_json(silent=True)
     if not data:
