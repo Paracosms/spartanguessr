@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ${IMAGE_CATALOG_PATH:?IMAGE_CATALOG_PATH must point to a host file}:/secrets/image_catalog.json:ro
+      - ${IMAGE_CATALOG_HOST_PATH:?IMAGE_CATALOG_HOST_PATH must point to a host file}:${IMAGE_CATALOG_PATH:?IMAGE_CATALOG_PATH must point to the container file}:ro
     networks:
       - app_net
 

@@ -1,7 +1,8 @@
 FROM python:3.12-slim
 
-RUN groupadd --system app && \
-    useradd --system --no-create-home --gid app app
+RUN groupadd --system --gid 10001 catalogread && \
+    groupadd --system app && \
+    useradd --system --no-create-home --gid app --groups catalogread app
 
 WORKDIR /app
 

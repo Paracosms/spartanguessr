@@ -276,7 +276,7 @@ On the Droplet:
 sudo install -d -m 0750 /opt/spartanguessr
 sudo tar -xzf /tmp/spartanguessr-deploy.tar.gz -C /opt/spartanguessr
 sudo install -d -m 0750 /opt/spartanguessr/secrets
-sudo install -m 0440 -o root -g root /tmp/image_catalog.json \
+sudo install -m 0440 -o root -g 10001 /tmp/image_catalog.json \
   /opt/spartanguessr/secrets/image_catalog.json
 rm /tmp/spartanguessr-deploy.tar.gz /tmp/image_catalog.json
 ```
