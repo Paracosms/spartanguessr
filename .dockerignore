@@ -1,0 +1,67 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Private catalogs and credentials
+image_catalog.private.json
+image_catalog_additions.json
+backend/image_catalog.local.json
+migrated-images/
+secrets/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python cache and artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+
+# Node / frontend (not needed in backend image)
+node_modules/
+dist/
+dist-ssr/
+*.local
+index.html
+.eslintrc*
+eslint.config.*
+tsconfig*.json
+vite.config.*
+wrangler.*
+package.json
+package-lock.json
+
+# IDE and editor
+.idea/
+.vscode/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tests
+backend/tests.py
+migrate/test_migrate.py
+
+# Documentation and markdown
+*.md
+!README.md
+
+# Logs
+logs/
+*.log
+
+# Migration tool
+migrate/
+
+# Frontend source
+src/

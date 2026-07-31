@@ -1,0 +1,31 @@
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${IMAGE_CATALOG_PATH:?IMAGE_CATALOG_PATH must point to a host file}:/secrets/image_catalog.json:ro
+    networks:
+      - app_net
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - app_net
+    depends_on:
+      - backend
+
+networks:
+  app_net:
+
+volumes:
+  caddy_data:
