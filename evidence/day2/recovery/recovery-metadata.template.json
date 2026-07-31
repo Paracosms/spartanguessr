@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "failure_triggered_at_utc": "<UTC_TIMESTAMP_WHEN_PID_1_CRASH_WAS_TRIGGERED>",
+  "container_restart_count": "<OBSERVED_RESTART_COUNT>",
+  "post_recovery_smoke": "<passed_or_failed>"
+}

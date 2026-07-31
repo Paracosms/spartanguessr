@@ -290,6 +290,7 @@ files.
 2. Fill the variable names produced by Codex. Expected values include:
    - `UPSTASH_REDIS_REST_URL`
    - `UPSTASH_REDIS_REST_TOKEN`
+   - `IMAGE_CATALOG_HOST_PATH=/opt/spartanguessr/secrets/image_catalog.json`
    - `IMAGE_CATALOG_PATH`
    - `IMAGE_CDN_BASE_URL`
    - `ALLOWED_ORIGINS` or the compatible singular variable, set to one exact
