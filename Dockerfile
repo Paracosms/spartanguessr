@@ -14,4 +14,4 @@ USER app
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "backend.app:app"]
+CMD ["gunicorn", "--config", "/app/backend/gunicorn.conf.py", "backend.app:app"]
