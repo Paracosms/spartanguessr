@@ -149,51 +149,62 @@ function Complete-ProbeRequest {
     }
 }
 
-function Complete-ProbeBatch {
+function Complete-CompletedProbes {
     param(
-        [object[]]$Probes,
+        [System.Collections.ArrayList]$PendingProbes,
         [System.IO.StreamWriter]$Writer
     )
 
-    $pending = New-Object System.Collections.ArrayList
-    foreach ($probe in $Probes) {
-        [void]$pending.Add($probe)
-    }
-
-    while ($pending.Count -gt 0) {
-        for ($index = $pending.Count - 1; $index -ge 0; $index -= 1) {
-            $probe = $pending[$index]
-            if ($probe.Task.IsCompleted) {
-                Complete-ProbeRequest -Probe $probe -Writer $Writer
-                $pending.RemoveAt($index)
-            }
-        }
-        if ($pending.Count -gt 0) {
-            Start-Sleep -Milliseconds 10
+    for ($index = $PendingProbes.Count - 1; $index -ge 0; $index -= 1) {
+        $probe = $PendingProbes[$index]
+        if ($probe.Task.IsCompleted) {
+            Complete-ProbeRequest -Probe $probe -Writer $Writer
+            $PendingProbes.RemoveAt($index)
         }
     }
 }
+
+function Drain-Probes {
+    param(
+        [System.Collections.ArrayList]$PendingProbes,
+        [System.IO.StreamWriter]$Writer
+    )
+
+    while ($PendingProbes.Count -gt 0) {
+        Complete-CompletedProbes -PendingProbes $PendingProbes -Writer $Writer
+        if ($PendingProbes.Count -gt 0) {
+            Start-Sleep -Milliseconds 1
+        }
+    }
+}
+
+[int]$pollIntervalMilliseconds = 10
+$pendingProbes = New-Object System.Collections.ArrayList
 
 [Console]::add_CancelKeyPress($cancelHandler)
 try {
     $writer.WriteLine('"timestamp_utc","endpoint","http_status","outcome","elapsed_ms"')
     $writer.Flush()
     $deadline = [DateTime]::UtcNow.AddSeconds($DurationSeconds)
+    $nextProbeAt = [DateTime]::UtcNow
 
     while ([DateTime]::UtcNow -lt $deadline -and -not $script:cancelRequested) {
-        $iterationStartedAt = [DateTime]::UtcNow
-        $probes = @(
-            Start-ProbeRequest -Endpoint '/health'
-            Start-ProbeRequest -Endpoint '/ready'
-        )
-        Complete-ProbeBatch -Probes $probes -Writer $writer
-
-        $elapsedMilliseconds = ([DateTime]::UtcNow - $iterationStartedAt).TotalMilliseconds
-        $remainingMilliseconds = 1000 - [Math]::Ceiling($elapsedMilliseconds)
-        if ($remainingMilliseconds -gt 0 -and -not $script:cancelRequested) {
-            Start-Sleep -Milliseconds $remainingMilliseconds
+        while ([DateTime]::UtcNow -lt $nextProbeAt -and -not $script:cancelRequested) {
+            Complete-CompletedProbes -PendingProbes $pendingProbes -Writer $writer
+            Start-Sleep -Milliseconds 1
         }
+
+        if ([DateTime]::UtcNow -ge $deadline -or $script:cancelRequested) {
+            break
+        }
+
+        [void]$pendingProbes.Add((Start-ProbeRequest -Endpoint '/health'))
+        [void]$pendingProbes.Add((Start-ProbeRequest -Endpoint '/ready'))
+        $nextProbeAt = [DateTime]::UtcNow.AddMilliseconds($pollIntervalMilliseconds)
+        Complete-CompletedProbes -PendingProbes $pendingProbes -Writer $writer
     }
+
+    Drain-Probes -PendingProbes $pendingProbes -Writer $writer
 }
 finally {
     $writer.Flush()

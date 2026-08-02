@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "test_config": {
+    "scenario": "measured",
+    "vus": 5,
+    "duration": "2m",
+    "pause_seconds": 1
+  },
+  "metrics": {
+    "completed_games_per_minute": 24.160630152014786,
+    "request_p95_ms": 46.248639999999995,
+    "http_failure_rate": 0
+  },
+  "thresholds": {
+    "all_checks_passed": true,
+    "http_failure_rate_at_most_one_percent": true,
+    "at_least_one_game_completed": true,
+    "no_game_flow_failures": true
+  }
+}

@@ -5,8 +5,6 @@ import math
 import uuid
 import secrets
 import time
-import tempfile
-from datetime import UTC, datetime
 from functools import wraps
 from urllib.parse import urlsplit
 
@@ -95,19 +93,11 @@ UPSTASH_REDIS_REST_TOKEN = required_environment("UPSTASH_REDIS_REST_TOKEN")
 IMAGE_CATALOG_PATH = required_environment("IMAGE_CATALOG_PATH")
 IMAGE_CDN_BASE_URL = validated_url("IMAGE_CDN_BASE_URL")
 ALLOWED_ORIGINS = validated_allowed_origins()
-APP_VERSION = required_environment("APP_VERSION")
-INSTANCE_ID = required_environment("INSTANCE_ID")
 REDIS_KEY_PREFIX = required_environment("REDIS_KEY_PREFIX")
 if any(character.isspace() or ord(character) < 32 for character in REDIS_KEY_PREFIX):
     raise RuntimeError("REDIS_KEY_PREFIX must not contain whitespace or control characters.")
 RATE_LIMIT_SECONDS = validated_positive_integer("RATE_LIMIT_SECONDS", 1, 3600)
 RATE_LIMIT_REQUESTS = validated_positive_integer("RATE_LIMIT_REQUESTS", 5, 100000)
-DRAIN_FILE = os.environ.get(
-    "DRAIN_FILE",
-    os.path.join(tempfile.gettempdir(), "spartanguessr-draining"),
-).strip()
-if not DRAIN_FILE:
-    raise RuntimeError("DRAIN_FILE must not be empty.")
 
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=False, send_wildcard=False)
 
@@ -121,7 +111,6 @@ SESSION_TTL_SECONDS = 60 * 60 # sessions expire after 1 hr
 # rate limit: RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS per IP address (e.g. 5 requests per second per IP)
 
 image_by_id, image_ids_by_bucket = load_image_catalog(IMAGE_CATALOG_PATH)
-STARTUP_READY = bool(image_by_id and image_ids_by_bucket)
 
 # random 64 character string for session id to prevent guessing and collisions
 def generate_session_id():
@@ -156,37 +145,11 @@ def is_rate_limited():
     return request_count > RATE_LIMIT_REQUESTS
 
 @app.before_request
-def start_request():
-    request.request_id = uuid.uuid4().hex
-    request.started_at = time.perf_counter()
-
-
-@app.before_request
 def enforce_rate_limit():
     if request.endpoint in {"health", "ready"}:
         return None
     if is_rate_limited():
         return jsonify({"error": "Rate limit exceeded. Try again shortly."}), 429
-
-
-@app.after_request
-def log_request(response):
-    duration_ms = round((time.perf_counter() - request.started_at) * 1000, 3)
-    route_template = request.url_rule.rule if request.url_rule is not None else "unmatched"
-    record = {
-        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "request_id": request.request_id,
-        "method": request.method,
-        "route": route_template,
-        "status": response.status_code,
-        "duration_ms": duration_ms,
-        "app_version": APP_VERSION,
-        "instance_id": INSTANCE_ID,
-    }
-    app.logger.info(json.dumps(record, separators=(",", ":"), sort_keys=True))
-    response.headers["X-Request-ID"] = request.request_id
-    return response
-
 
 def redis_required(view):
     @wraps(view)
@@ -339,8 +302,6 @@ def health():
 
 @app.route("/ready")
 def ready():
-    if not STARTUP_READY or os.path.exists(DRAIN_FILE):
-        return jsonify({"status": "unavailable"}), 503
     try:
         redis.ping()
     except Exception:

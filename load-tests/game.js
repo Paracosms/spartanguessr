@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Counter, Trend } from 'k6/metrics';
+import { Counter } from 'k6/metrics';
 
 /*
  * Day 2 complete-game workload.
@@ -75,18 +75,16 @@ const targetBaseUrl = requiredEnvironment(
   /^https?:\/\/[^/?#\s@]+(?:\/[^\s?#]*)?$/i,
 ).replace(/\/+$/, '');
 const runId = requiredEnvironment('RUN_ID', /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/);
-const runSetId = requiredEnvironment(
-  'RUN_SET_ID',
-  /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/,
-);
+const evidenceSet = __ENV.EVIDENCE_SET || 'day2';
+if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(evidenceSet)) {
+  throw new Error('EVIDENCE_SET is missing or invalid.');
+}
 const vus = positiveIntegerEnvironment('K6_VUS', scenarioDefaults.vus);
 const duration = durationEnvironment('K6_DURATION', scenarioDefaults.duration);
 const pauseSeconds = pauseEnvironment('K6_PAUSE_SECONDS', scenarioDefaults.pauseSeconds);
 
 const completedGames = new Counter('games_completed');
-const fullGameDuration = new Trend('full_game_duration_ms', true);
 const gameFlowFailures = new Counter('game_flow_failures');
-const http429s = new Counter('http_429s');
 
 export const options = {
   scenarios: {
@@ -148,9 +146,6 @@ function request(method, path, body, operation) {
     ? http.get(targetBaseUrl + path, parameters)
     : http.post(targetBaseUrl + path, JSON.stringify(body), parameters);
 
-  if (response.status === 429) {
-    http429s.add(1);
-  }
   sleep(pauseSeconds);
   return response;
 }
@@ -161,11 +156,7 @@ function failFlow() {
 }
 
 export default function () {
-  const startedAt = Date.now();
   let flowIsValid = true;
-  completedGames.add(0);
-  gameFlowFailures.add(0);
-  http429s.add(0);
 
   const sessionResponse = request(
     'POST',
@@ -298,7 +289,6 @@ export default function () {
   }
 
   completedGames.add(1);
-  fullGameDuration.add(Date.now() - startedAt);
   flowCheck('complete game flow is valid', true);
 }
 
@@ -328,48 +318,15 @@ export function handleSummary(data) {
   const sanitizedSummary = {
     schema_version: 1,
     test_config: {
-      run_id: runId,
-      run_set_id: runSetId,
       scenario: scenarioName,
       vus,
       duration,
       pause_seconds: pauseSeconds,
     },
     metrics: {
-      games_completed: {
-        count: metricNumber(data, 'games_completed', 'count'),
-        per_second: gamesPerSecond,
-        per_minute: gamesPerSecond === null ? null : gamesPerSecond * 60,
-      },
-      full_game_duration_ms: {
-        min: metricNumber(data, 'full_game_duration_ms', 'min'),
-        average: metricNumber(data, 'full_game_duration_ms', 'avg'),
-        p50: metricNumber(data, 'full_game_duration_ms', 'med'),
-        p95: metricNumber(data, 'full_game_duration_ms', 'p(95)'),
-        max: metricNumber(data, 'full_game_duration_ms', 'max'),
-      },
-      http_requests: {
-        count: metricNumber(data, 'http_reqs', 'count'),
-        requests_per_second: metricNumber(data, 'http_reqs', 'rate'),
-      },
-      request_duration_ms: {
-        p50: metricNumber(data, 'http_req_duration', 'med'),
-        p95: metricNumber(data, 'http_req_duration', 'p(95)'),
-      },
-      http_failures: {
-        rate: metricNumber(data, 'http_req_failed', 'rate'),
-      },
-      http_429s: {
-        count: metricNumber(data, 'http_429s', 'count'),
-        per_second: metricNumber(data, 'http_429s', 'rate'),
-      },
-      game_flow_failures: {
-        count: metricNumber(data, 'game_flow_failures', 'count'),
-        per_second: metricNumber(data, 'game_flow_failures', 'rate'),
-      },
-      checks: {
-        pass_rate: metricNumber(data, 'checks', 'rate'),
-      },
+      completed_games_per_minute: gamesPerSecond === null ? null : gamesPerSecond * 60,
+      request_p95_ms: metricNumber(data, 'http_req_duration', 'p(95)'),
+      http_failure_rate: metricNumber(data, 'http_req_failed', 'rate'),
     },
     thresholds: {
       all_checks_passed: thresholdPassed(data, 'checks', 'rate==1'),
@@ -392,8 +349,8 @@ export function handleSummary(data) {
   };
 
   return {
-    ['evidence/day2/benchmarks/' + runId + '-summary.json']:
+    ['evidence/' + evidenceSet + '/benchmarks/' + runId + '-summary.json']:
       JSON.stringify(sanitizedSummary, null, 2) + '\n',
-    stdout: 'Sanitized Day 2 summary written for run ' + runId + '.\n',
+    stdout: 'Sanitized summary written for run ' + runId + '.\n',
   };
 }

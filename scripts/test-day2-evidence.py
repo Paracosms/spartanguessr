@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused local tests for the sanitized Day 2 evidence validator."""
+"""Focused local tests for the reduced Day 2 evidence validator."""
 
 import csv
 import importlib.util
@@ -24,7 +24,7 @@ class EvidenceValidatorTests(unittest.TestCase):
             VALIDATOR.contains_ip_address("timestamp=2026-07-31T10:00:00Z")
         )
 
-    def test_recovery_uses_success_after_final_failure(self):
+    def test_recovery_uses_success_after_final_readiness_failure(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             csv_path = root / "recovery-probe.csv"
@@ -32,13 +32,9 @@ class EvidenceValidatorTests(unittest.TestCase):
             rows = (
                 ("2026-07-31T09:59:59.0000000Z", "/health", "200", "success", "10"),
                 ("2026-07-31T09:59:59.1000000Z", "/ready", "200", "success", "10"),
-                ("2026-07-31T10:00:00.1000000Z", "/health", "200", "success", "10"),
                 ("2026-07-31T10:00:00.2000000Z", "/ready", "200", "success", "10"),
-                ("2026-07-31T10:00:01.0000000Z", "/health", "", "failure", "1000"),
                 ("2026-07-31T10:00:01.1000000Z", "/ready", "503", "failure", "10"),
-                ("2026-07-31T10:00:02.0000000Z", "/health", "", "failure", "1000"),
                 ("2026-07-31T10:00:02.2000000Z", "/ready", "503", "failure", "10"),
-                ("2026-07-31T10:00:03.0000000Z", "/health", "200", "success", "10"),
                 ("2026-07-31T10:00:04.0000000Z", "/ready", "200", "success", "10"),
             )
             with csv_path.open("w", encoding="utf-8", newline="") as csv_file:
@@ -52,7 +48,6 @@ class EvidenceValidatorTests(unittest.TestCase):
                     {
                         "schema_version": 1,
                         "failure_triggered_at_utc": "2026-07-31T10:00:00Z",
-                        "container_restart_count": 1,
                         "post_recovery_smoke": "passed",
                     }
                 ),
@@ -61,9 +56,7 @@ class EvidenceValidatorTests(unittest.TestCase):
 
             recovery = VALIDATOR.validate_recovery(csv_path, metadata_path)
 
-            self.assertEqual(recovery["public_probe_error_count"], 4)
-            self.assertEqual(recovery["health_first_success_after_trigger_ms"], 3000)
-            self.assertEqual(recovery["ready_first_success_after_trigger_ms"], 4000)
+            self.assertEqual(recovery["ready_recovery_ms"], 4000)
 
     def test_recovery_rejects_invalid_elapsed_value_cleanly(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -71,7 +64,7 @@ class EvidenceValidatorTests(unittest.TestCase):
             metadata_path = Path(temporary_directory) / "recovery-metadata.json"
             csv_path.write_text(
                 "timestamp_utc,endpoint,http_status,outcome,elapsed_ms\n"
-                "2026-07-31T10:00:00Z,/health,200,success,not-a-number\n",
+                "2026-07-31T10:00:00Z,/ready,200,success,not-a-number\n",
                 encoding="utf-8",
             )
 
@@ -81,7 +74,7 @@ class EvidenceValidatorTests(unittest.TestCase):
             ):
                 VALIDATOR.validate_recovery(csv_path, metadata_path)
 
-    def test_summary_must_match_frozen_run_set(self):
+    def test_summary_requires_the_fixed_measured_configuration(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             summary_path = Path(temporary_directory) / "run-1-summary.json"
             summary_path.write_text(
@@ -89,15 +82,22 @@ class EvidenceValidatorTests(unittest.TestCase):
                     {
                         "schema_version": 1,
                         "test_config": {
-                            "run_id": "run-1",
-                            "run_set_id": "wrong-run-set",
-                            "scenario": "measured",
-                            "vus": 5,
-                            "duration": "2m",
+                            "scenario": "smoke",
+                            "vus": 1,
+                            "duration": "30s",
                             "pause_seconds": 1,
                         },
-                        "metrics": {},
-                        "thresholds": {},
+                        "metrics": {
+                            "completed_games_per_minute": 1,
+                            "request_p95_ms": 2,
+                            "http_failure_rate": 0,
+                        },
+                        "thresholds": {
+                            "all_checks_passed": True,
+                            "http_failure_rate_at_most_one_percent": True,
+                            "at_least_one_game_completed": True,
+                            "no_game_flow_failures": True,
+                        },
                     }
                 ),
                 encoding="utf-8",
@@ -105,57 +105,22 @@ class EvidenceValidatorTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 VALIDATOR.EvidenceError,
-                "run-set ID does not match",
+                "fixed test configuration",
             ):
-                VALIDATOR.validate_summary(
-                    summary_path,
-                    "run-1",
-                    "expected-run-set",
-                    {
-                        "scenario": "measured",
-                        "vus": 5,
-                        "duration": "2m",
-                        "pause_seconds": 1,
-                    },
-                )
+                VALIDATOR.validate_summary(summary_path, VALIDATOR.MEASURED_CONFIG)
 
-    def test_summary_cannot_claim_threshold_success_without_completed_game(self):
+    def test_summary_must_contain_a_completed_game(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             summary_path = Path(temporary_directory) / "run-1-summary.json"
             summary_path.write_text(
                 json.dumps(
                     {
                         "schema_version": 1,
-                        "test_config": {
-                            "run_id": "run-1",
-                            "run_set_id": "expected-run-set",
-                            "scenario": "measured",
-                            "vus": 5,
-                            "duration": "2m",
-                            "pause_seconds": 1,
-                        },
+                        "test_config": VALIDATOR.MEASURED_CONFIG,
                         "metrics": {
-                            "games_completed": {
-                                "count": 0,
-                                "per_second": 0,
-                                "per_minute": 0,
-                            },
-                            "full_game_duration_ms": {
-                                "min": 1,
-                                "average": 2,
-                                "p50": 2,
-                                "p95": 3,
-                                "max": 3,
-                            },
-                            "http_requests": {
-                                "count": 1,
-                                "requests_per_second": 1,
-                            },
-                            "request_duration_ms": {"p50": 1, "p95": 2},
-                            "http_failures": {"rate": 0},
-                            "http_429s": {"count": 0, "per_second": 0},
-                            "game_flow_failures": {"count": 0, "per_second": 0},
-                            "checks": {"pass_rate": 1},
+                            "completed_games_per_minute": 0,
+                            "request_p95_ms": 2,
+                            "http_failure_rate": 0,
                         },
                         "thresholds": {
                             "all_checks_passed": True,
@@ -172,55 +137,27 @@ class EvidenceValidatorTests(unittest.TestCase):
                 VALIDATOR.EvidenceError,
                 "contains no completed game",
             ):
-                VALIDATOR.validate_summary(
-                    summary_path,
-                    "run-1",
-                    "expected-run-set",
-                    {
-                        "scenario": "measured",
-                        "vus": 5,
-                        "duration": "2m",
-                        "pause_seconds": 1,
-                    },
-                )
+                VALIDATOR.validate_summary(summary_path, VALIDATOR.MEASURED_CONFIG)
 
-    def test_teardown_proof_requires_ordered_complete_cleanup(self):
+    def test_results_document_only_needs_resume_sections(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            proof_path = Path(temporary_directory) / "teardown-proof.json"
-            proof = {
-                "schema_version": 1,
-                "droplet_created_at_utc": "2026-07-31T08:00:00Z",
-                "experiment_started_at_utc": "2026-07-31T09:00:00Z",
-                "experiment_ended_at_utc": "2026-07-31T10:05:00Z",
-                "resource_types_before_teardown": [
-                    "droplet",
-                    "cloud_firewall",
-                    "dns_a_record",
-                ],
-                "actual_cost": {"amount": 0, "currency": "USD"},
-                "droplet_destroyed_at_utc": "2026-07-31T10:00:00Z",
-                "firewall_deleted_at_utc": "2026-07-31T10:01:00Z",
-                "dns_record_deleted_at_utc": "2026-07-31T10:02:00Z",
-                "temporary_api_token_status": "not_created",
-                "remaining_experiment_resources": [],
-                "residual_resources_confirmed_at_utc": "2026-07-31T10:03:00Z",
-                "render_unchanged": True,
-                "render_unchanged_confirmed_at_utc": "2026-07-31T10:04:00Z",
-            }
-            proof_path.write_text(json.dumps(proof), encoding="utf-8")
-
-            self.assertEqual(
-                VALIDATOR.validate_teardown(proof_path)["render_unchanged"],
-                True,
+            results_path = Path(temporary_directory) / "experiment-results.md"
+            results_path.write_text(
+                "\n".join(
+                    (
+                        "## Benchmark measurements",
+                        "games/min and request p95",
+                        "## Recovery measurement",
+                        "readiness recovered",
+                        "## Limitations",
+                        "short experiment",
+                        "## Resume bullet",
+                        "measured values",
+                    )
+                ),
+                encoding="utf-8",
             )
-
-            proof["remaining_experiment_resources"] = ["unexpected_resource"]
-            proof_path.write_text(json.dumps(proof), encoding="utf-8")
-            with self.assertRaisesRegex(
-                VALIDATOR.EvidenceError,
-                "empty remaining_experiment_resources",
-            ):
-                VALIDATOR.validate_teardown(proof_path)
+            VALIDATOR.validate_results_document(results_path)
 
 
 if __name__ == "__main__":

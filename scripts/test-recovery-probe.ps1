@@ -27,7 +27,7 @@ $mockScript = {
                 $listener.AcceptTcpClient()
             )
             $requestCount += $clients.Count
-            Start-Sleep -Milliseconds 600
+            Start-Sleep -Milliseconds 5
 
             foreach ($client in $clients) {
                 try {
@@ -93,13 +93,22 @@ try {
     if ([Math]::Abs(($firstHealth - $firstReady).TotalMilliseconds) -gt 250) {
         throw 'Recovery probe did not start and complete the endpoint pair concurrently.'
     }
+    $healthRows = @($rows | Where-Object { $_.endpoint -eq '/health' })
+    if ($healthRows.Count -lt 10) {
+        throw 'Recovery probe did not poll at the requested high frequency.'
+    }
+    $firstHealthTimestamp = [DateTimeOffset]::Parse($healthRows[0].timestamp_utc)
+    $secondHealthTimestamp = [DateTimeOffset]::Parse($healthRows[1].timestamp_utc)
+    if (($secondHealthTimestamp - $firstHealthTimestamp).TotalMilliseconds -gt 100) {
+        throw 'Recovery probe did not start health checks every 10 milliseconds.'
+    }
     if (@($rows | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name | Where-Object {
         $_ -match '(?i)(url|body|header|ip|token|session|coordinate)'
     }).Count -ne 0) {
         throw 'Recovery probe CSV contains a prohibited field.'
     }
 
-    Write-Output 'PASS: recovery probe handled local success, HTTP failure, and connection failure without unsafe fields.'
+    Write-Output 'PASS: recovery probe handled local success, HTTP failure, connection failure, and 10-millisecond polling without unsafe fields.'
 }
 finally {
     if ($null -ne $mock) {

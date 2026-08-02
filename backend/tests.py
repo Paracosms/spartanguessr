@@ -55,11 +55,6 @@ class FakeRedis:
             self._data[key] = value
             return True
 
-    def delete(self, key):
-        self._see(key)
-        with self._lock:
-            return 1 if self._data.pop(key, None) is not None else 0
-
     def eval(self, script, keys=None, args=None):
         with self._lock:
             key = (keys or [None])[0]
@@ -138,7 +133,6 @@ def mock_redis():
     r.zremrangebyrank.return_value = 0
     r.zcount.return_value = 0
     r.set.return_value = True       # nx lock returns True = acquired
-    r.delete.return_value = 1
     return r
 
 
@@ -164,7 +158,7 @@ def catalog_path(tmp_path):
 
 
 @pytest.fixture
-def app(mock_redis, catalog_path, tmp_path):
+def app(mock_redis, catalog_path):
     """Create a test Flask app with Redis patched."""
     with patch.dict(os.environ, {
         "UPSTASH_REDIS_REST_URL": "https://example.com",
@@ -172,12 +166,9 @@ def app(mock_redis, catalog_path, tmp_path):
         "ALLOWED_ORIGIN": "http://localhost:5173",
         "IMAGE_CATALOG_PATH": str(catalog_path),
         "IMAGE_CDN_BASE_URL": "https://images.example.com",
-        "APP_VERSION": "test-version",
-        "INSTANCE_ID": "test-instance",
         "REDIS_KEY_PREFIX": "test:",
         "RATE_LIMIT_REQUESTS": "5",
         "RATE_LIMIT_SECONDS": "1",
-        "DRAIN_FILE": str(tmp_path / "draining"),
     }, clear=False):
         sys.modules.pop("app", None)
         flask_app = importlib.import_module("app")
@@ -195,7 +186,7 @@ def client(app):
 
 
 @pytest.fixture
-def fake_app(catalog_path, tmp_path):
+def fake_app(catalog_path):
     """Flask app backed by an in-memory FakeRedis with real lock functions.
 
     Unlike ``app``, this does not mock ``acquire_session_lock`` /
@@ -209,12 +200,9 @@ def fake_app(catalog_path, tmp_path):
         "ALLOWED_ORIGIN": "http://localhost:5173",
         "IMAGE_CATALOG_PATH": str(catalog_path),
         "IMAGE_CDN_BASE_URL": "https://images.example.com",
-        "APP_VERSION": "test-version",
-        "INSTANCE_ID": "test-instance",
         "REDIS_KEY_PREFIX": "test:",
         "RATE_LIMIT_REQUESTS": "5",
         "RATE_LIMIT_SECONDS": "1",
-        "DRAIN_FILE": str(tmp_path / "draining"),
     }, clear=False):
         sys.modules.pop("app", None)
         flask_app = importlib.import_module("app")
@@ -714,12 +702,9 @@ class TestDeploymentConfiguration:
             "script_root": "",
         }
 
-    def test_required_environment_and_numeric_settings_are_validated(self, app):
+    def test_numeric_and_origin_settings_are_validated(self, app):
         _, flask_app, _ = app
 
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(RuntimeError, match="APP_VERSION is required"):
-                flask_app.required_environment("APP_VERSION")
         with patch.dict(os.environ, {"RATE_LIMIT_REQUESTS": "NaN"}, clear=False):
             with pytest.raises(RuntimeError, match="must be an integer"):
                 flask_app.validated_positive_integer("RATE_LIMIT_REQUESTS", 5, 100)
@@ -731,8 +716,6 @@ class TestDeploymentConfiguration:
         _, flask_app, _ = app
 
         assert flask_app.ALLOWED_ORIGINS == ["http://localhost:5173"]
-        assert flask_app.APP_VERSION == "test-version"
-        assert flask_app.INSTANCE_ID == "test-instance"
         assert flask_app.REDIS_KEY_PREFIX == "test:"
         assert flask_app.RATE_LIMIT_REQUESTS == 5
         assert flask_app.RATE_LIMIT_SECONDS == 1
@@ -764,21 +747,6 @@ class TestHealthAndReadiness:
 
         assert response.status_code == 503
         assert response.get_json() == {"status": "unavailable"}
-
-    def test_ready_returns_503_while_draining_and_recovers(self, client, app):
-        _, flask_app, mock_redis = app
-        with open(flask_app.DRAIN_FILE, "w", encoding="utf-8"):
-            pass
-
-        assert client.get("/ready").status_code == 503
-        mock_redis.ping.assert_not_called()
-        os.unlink(flask_app.DRAIN_FILE)
-        assert client.get("/ready").status_code == 200
-
-    def test_ready_returns_503_when_startup_state_is_unavailable(self, client):
-        with patch("app.STARTUP_READY", False):
-            assert client.get("/ready").status_code == 503
-
 
 class TestCorsAndSafeFailures:
     def test_cors_allows_only_the_exact_configured_origin(self, client):
@@ -829,42 +797,6 @@ class TestCoordinateValidation:
         mock_redis.get.assert_not_called()
 
 
-class TestSafeRequestLogging:
-    def test_logs_only_route_template_and_safe_request_metadata(self, client, caplog):
-        caplog.set_level("INFO")
-
-        response = client.get(
-            "/session/concrete-secret-session?token=secret-query",
-            environ_base={"REMOTE_ADDR": "192.0.2.123"},
-        )
-
-        request_records = [
-            json.loads(record.message)
-            for record in caplog.records
-            if record.message.startswith("{")
-        ]
-        record = request_records[-1]
-        assert set(record) == {
-            "timestamp",
-            "request_id",
-            "method",
-            "route",
-            "status",
-            "duration_ms",
-            "app_version",
-            "instance_id",
-        }
-        assert record["route"] == "/session/<session_id>"
-        assert record["method"] == "GET"
-        assert record["status"] == response.status_code
-        assert record["app_version"] == "test-version"
-        assert record["instance_id"] == "test-instance"
-        assert response.headers["X-Request-ID"] == record["request_id"]
-        assert "concrete-secret-session" not in caplog.text
-        assert "secret-query" not in caplog.text
-        assert "192.0.2.123" not in caplog.text
-
-
 class TestSeedStability:
     def test_guess_ignores_client_seed_override_and_keeps_session_seed_stable(self, client, app):
         _, flask_app, mock_redis = app
@@ -902,25 +834,6 @@ class TestSeedStability:
         assert saved_guesses[0].image_id == "00000000000000000000000000000006"
         assert session.seed == "stable-seed"
         assert not hasattr(saved_guesses[0], "seed")
-
-
-# ---------------------------------------------------------------------------
-# Combined health/readiness during Redis outage
-# ---------------------------------------------------------------------------
-
-class TestHealthAndReadinessRedisOutage:
-    def test_health_stays_200_and_ready_503_when_redis_unavailable(self, client, mock_redis):
-        mock_redis.ping.side_effect = ConnectionError("redis unavailable")
-
-        health = client.get("/health")
-        assert health.status_code == 200
-        assert health.get_json() == {"status": "ok"}
-
-        ready = client.get("/ready")
-        assert ready.status_code == 503
-        assert ready.get_json() == {"status": "unavailable"}
-
-        mock_redis.incr.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ const source = await readFile(new URL('../load-tests/game.js', import.meta.url),
 const transformed = source
   .replace("import http from 'k6/http';", '')
   .replace("import { check, sleep } from 'k6';", '')
-  .replace("import { Counter, Trend } from 'k6/metrics';", '')
+  .replace("import { Counter } from 'k6/metrics';", '')
   .replace('export const options =', 'const options =')
   .replace('export default function () {', 'function workload() {')
   .replace('export function handleSummary(data) {', 'function handleSummary(data) {')
@@ -30,14 +30,13 @@ const factory = new Function(
   'check',
   'sleep',
   'Counter',
-  'Trend',
   transformed,
 );
 const { options, handleSummary } = factory(
   {
     TARGET_BASE_URL: 'http://127.0.0.1',
     RUN_ID: 'summary-test',
-    RUN_SET_ID: 'local-validation',
+    EVIDENCE_SET: 'render',
     K6_SCENARIO: 'measured',
   },
   {
@@ -51,7 +50,21 @@ const { options, handleSummary } = factory(
   () => true,
   () => {},
   Metric,
-  Metric,
+);
+
+assert.throws(
+  () => factory(
+    {
+      TARGET_BASE_URL: 'http://127.0.0.1',
+      RUN_ID: 'invalid-evidence-set',
+      EVIDENCE_SET: '../render',
+    },
+    {},
+    () => true,
+    () => {},
+    Metric,
+  ),
+  /EVIDENCE_SET is missing or invalid/,
 );
 
 assert.equal(options.scenarios.complete_game.vus, 5);
@@ -60,12 +73,10 @@ assert.equal(options.thresholds.http_req_failed[0], 'rate<=0.01');
 assert.equal(options.thresholds.game_flow_failures[0], 'count==0');
 
 const outputs = handleSummary({ metrics: {} });
-const summaryPath = 'evidence/day2/benchmarks/summary-test-summary.json';
+const summaryPath = 'evidence/render/benchmarks/summary-test-summary.json';
 assert.deepEqual(Object.keys(outputs).sort(), [summaryPath, 'stdout'].sort());
 
 const summary = JSON.parse(outputs[summaryPath]);
-assert.equal(summary.test_config.run_id, 'summary-test');
-assert.equal(summary.test_config.run_set_id, 'local-validation');
 assert.equal(summary.test_config.scenario, 'measured');
 assert.equal(summary.test_config.vus, 5);
 assert.equal(summary.test_config.duration, '2m');
@@ -76,8 +87,8 @@ assert.doesNotMatch(
   serializedSummary,
   /127\.0\.0\.1|https?:\/\/|session|latitude|longitude|response|token|catalog|client.?ip/i,
 );
-assert.equal(summary.metrics.games_completed.count, null);
-assert.equal(summary.metrics.request_duration_ms.p50, null);
+assert.equal(summary.metrics.completed_games_per_minute, null);
+assert.equal(summary.metrics.request_p95_ms, null);
 assert.equal(summary.thresholds.all_checks_passed, false);
 
 const failedChecks = [];
@@ -87,7 +98,7 @@ const invalidImageWorkload = factory(
   {
     TARGET_BASE_URL: 'http://127.0.0.1',
     RUN_ID: 'invalid-image-test',
-    RUN_SET_ID: 'local-validation',
+    EVIDENCE_SET: 'day2',
     K6_SCENARIO: 'smoke',
   },
   {
@@ -133,7 +144,6 @@ const invalidImageWorkload = factory(
   }),
   () => {},
   Metric,
-  Metric,
 );
 
 invalidImageWorkload.workload();
@@ -167,7 +177,7 @@ const fullFlow = factory(
   {
     TARGET_BASE_URL: 'http://127.0.0.1',
     RUN_ID: 'full-flow-test',
-    RUN_SET_ID: 'local-validation',
+    EVIDENCE_SET: 'day2',
     K6_SCENARIO: 'smoke',
   },
   {
@@ -256,7 +266,6 @@ const fullFlow = factory(
   }),
   () => {},
   RecordingMetric,
-  RecordingMetric,
 );
 
 fullFlow.workload();
@@ -265,10 +274,8 @@ assert.equal(fullFlowPostCount, 6);
 assert.equal(randomImageCount, 5);
 assert.equal(guessCount, 5);
 assert.deepEqual(fullFlowFailedChecks, []);
-assert.deepEqual(metricSamples.get('games_completed'), [0, 1]);
-assert.deepEqual(metricSamples.get('game_flow_failures'), [0]);
-assert.deepEqual(metricSamples.get('http_429s'), [0]);
-assert.equal(metricSamples.get('full_game_duration_ms').length, 1);
+assert.deepEqual(metricSamples.get('games_completed'), [1]);
+assert.deepEqual(metricSamples.get('game_flow_failures'), []);
 
 console.log(
   'PASS: k6 initialization, aggregate summary, failure handling, and full five-round flow validated locally.',
