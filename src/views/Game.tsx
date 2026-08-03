@@ -47,6 +47,7 @@ export default function Game() {
     const location = useLocation();
     const navigate = useNavigate();
 
+    const useCompactLayout = viewport.coarsePointer || viewport.width <= 768 || viewport.height <= 640;
     const minimapHeightPx = computeMinimapHeight(viewport.height);
     const availableTouchMapHeight = Math.max(
         1,
@@ -73,16 +74,16 @@ export default function Game() {
         minimapHeightPx * GAME_MINIMAP_COLLAPSED_SCALE,
         expandedTouchMapHeight * (GAME_MINIMAP_COLLAPSED_SCALE / GAME_MINIMAP_EXPANDED_SCALE)
     );
-    const displayedMinimapHeightPx = viewport.coarsePointer
-        ? Math.round(minimapTouchExpanded ? expandedTouchMapHeight : collapsedTouchMapHeight)
-        : minimapHeightPx;
     const minimapExpanded = minimapHovered || minimapTouchExpanded;
+    const displayedMinimapHeightPx = useCompactLayout
+        ? Math.round(minimapExpanded ? expandedTouchMapHeight : collapsedTouchMapHeight)
+        : minimapHeightPx;
     const desktopMinimapScale = minimapExpanded
         ? GAME_MINIMAP_EXPANDED_SCALE
         : GAME_MINIMAP_COLLAPSED_SCALE;
-    const minimapWrapperScale = viewport.coarsePointer ? 1 : desktopMinimapScale;
+    const minimapWrapperScale = useCompactLayout ? 1 : desktopMinimapScale;
     const guessButtonWidthPx = Math.round(
-        (viewport.coarsePointer ? collapsedTouchMapHeight : minimapHeightPx * GAME_MINIMAP_COLLAPSED_SCALE)
+        (useCompactLayout ? collapsedTouchMapHeight : minimapHeightPx * GAME_MINIMAP_COLLAPSED_SCALE)
         * GAME_MINIMAP_ASPECT_RATIO
     );
 
@@ -222,20 +223,17 @@ export default function Game() {
                 />
             )}
 
-            <div className="position-absolute top-0 start-50 translate-middle-x p-3" >
-                <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
+            <div className="game-status-bar">
+                <p className="game-status game-timer text-black text-center bg-white rounded shadow border border-5 border-warning px-3">
                     Timer: {formatTimer(timeRemaining)} 
                 </p>
-            </div>
-
-            <div className="position-absolute top-0 end-0 p-3">
-                <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
+                <p className="game-status game-round text-black text-center bg-white rounded shadow border border-5 border-warning px-3">
                     Current Round: {roundNumber}/{maxRounds}
                 </p>
             </div>
 
             <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3" style={{alignItems: "flex-end"}}>
-                    {/* shrinks to 70% when idle, expands on hover */}
+                    {/* Desktop expands on hover; touch devices expand on tap. */}
                     <div
                         onPointerEnter={(e) => {
                             if (e.pointerType === "mouse") setMinimapHovered(true);
