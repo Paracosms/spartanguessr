@@ -34,6 +34,13 @@ RATE_LIMIT_SECONDS = 1
 RATE_LIMIT_REQUESTS = 5
 # rate limit: RATE_LIMIT_REQUESTS per RATE_LIMIT_SECONDS per IP address (e.g. 5 requests per second per IP)
 
+_RELEASE_LOCK_SCRIPT = """
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    return redis.call("del", KEYS[1])
+end
+return 0
+"""
+
 IMAGE_CATALOG_PATH = os.environ.get("IMAGE_CATALOG_PATH")
 IMAGE_CDN_BASE_URL = os.environ.get("IMAGE_CDN_BASE_URL", "").rstrip("/")
 if not IMAGE_CDN_BASE_URL:
@@ -137,9 +144,7 @@ def acquire_session_lock(session_id):
 def release_session_lock(session_id, lock_token):
     lock_key = f"session:{session_id}:lock"
     try:
-        current_value = redis.get(lock_key)
-        if current_value == lock_token:
-            redis.delete(lock_key)
+        redis.eval(_RELEASE_LOCK_SCRIPT, keys=[lock_key], args=[lock_token])
     except Exception:
         # lock if failed
         pass
