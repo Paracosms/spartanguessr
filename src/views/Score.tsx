@@ -13,6 +13,7 @@ export default function Score() {
 	const navigate = useNavigate();
 	const routeState = location.state as ScoreRouteState;
 	const guessPos = routeState?.guess_pos;
+	const timedOutWithoutGuess = guessPos?.x === 99999 && guessPos?.y === 99999;
 	const actualPos = routeState?.actual_pos;
 	const imageUrl = routeState?.image_url;
 	const gameState = routeState?.gameState;
@@ -111,7 +112,7 @@ export default function Score() {
 					initializeScaleToMinZoom
 					actualPosition={actualPos}
 					showActualDot
-					showAlignmentLine
+					showAlignmentLine={!timedOutWithoutGuess}
 				/>
 
 				<div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
