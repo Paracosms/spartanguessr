@@ -3,9 +3,41 @@ import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 import type { ScoreRouteState } from "../utils/types";
 const SCORE_MINIMAP_HEIGHT_VH = 0.80;
+const SCORE_MINIMAP_ASPECT_RATIO = 1428 / 1503;
+const SCORE_VIEWPORT_GUTTER_PX = 16;
+const SCORE_LAYOUT_GAP_PX = 16;
+const SCORE_STACK_BREAKPOINT_PX = 560;
+const SCORE_ROW_CONTROLS_HEIGHT_PX = 56;
+const SCORE_STACKED_CONTROLS_HEIGHT_PX = 128;
 
-function computeMinimapHeight() {
-	return Math.round(window.innerHeight * SCORE_MINIMAP_HEIGHT_VH);
+type ViewportState = {
+	width: number;
+	height: number;
+};
+
+function getViewportState(): ViewportState {
+	return {
+		width: window.innerWidth,
+		height: window.innerHeight,
+	};
+}
+
+function computeMinimapHeight(viewport: ViewportState) {
+	const controlsHeight = viewport.width < SCORE_STACK_BREAKPOINT_PX
+		? SCORE_STACKED_CONTROLS_HEIGHT_PX
+		: SCORE_ROW_CONTROLS_HEIGHT_PX;
+	const availableHeight = viewport.height
+		- SCORE_VIEWPORT_GUTTER_PX * 2
+		- SCORE_LAYOUT_GAP_PX
+		- controlsHeight;
+	const availableWidthAsHeight = (viewport.width - SCORE_VIEWPORT_GUTTER_PX * 2)
+		/ SCORE_MINIMAP_ASPECT_RATIO;
+
+	return Math.max(1, Math.round(Math.min(
+		viewport.height * SCORE_MINIMAP_HEIGHT_VH,
+		availableHeight,
+		availableWidthAsHeight
+	)));
 }
 
 export default function Score() {
@@ -20,7 +52,8 @@ export default function Score() {
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
 	const nextRoundNumber = routeState?.next_round_number;
-	const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
+	const [viewport, setViewport] = useState(getViewportState);
+	const minimapHeightPx = computeMinimapHeight(viewport);
 
     const unlabeled = routeState?.gameState?.unlabeledMap ?? false;
 
@@ -32,7 +65,7 @@ export default function Score() {
 
 	useEffect(() => {
 		function handleResize() {
-			setMinimapHeightPx(computeMinimapHeight());
+			setViewport(getViewportState());
 		}
 
 		window.addEventListener("resize", handleResize);
@@ -95,6 +128,7 @@ export default function Score() {
 			/>
 
 			<section
+				className="score-layout"
 				style={{
 					zIndex: 2,
 					display: "flex",
@@ -115,17 +149,16 @@ export default function Score() {
 					showAlignmentLine={!timedOutWithoutGuess}
 				/>
 
-				<div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+				<div className="score-controls">
 					<button
 						type="button"
-						className="start-game-button"
-						style={{ width: "280px" }}
+						className="start-game-button score-continue"
 						onClick={handleContinue}
 					>
 						Continue
 					</button>
 
-					<p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3 py-2 m-0" style={{ fontSize: "1.2rem", fontWeight: 600 }}>
+					<p className="score-summary text-black text-center bg-white rounded shadow border border-5 border-warning px-3 py-2 m-0">
 						Round {routeState.round_number}: {routeState.round_score} points
 					</p>
 				</div>

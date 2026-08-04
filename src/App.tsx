@@ -18,7 +18,7 @@ function LandingPage() {
         <main className="landing-page">
             <section>
                 <div className="d-flex justify-content-center">
-                    <img src={Logo} style={{height: "20vh"}}/>
+                    <img className="landing-logo" src={Logo} alt="SpartanGuessr"/>
                 </div>
                 <p className="subtitle" >
                     How well do you know SJSU?
