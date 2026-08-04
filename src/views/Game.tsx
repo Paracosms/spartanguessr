@@ -9,10 +9,30 @@ const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on sm
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
 const GAME_MINIMAP_INITIAL_OFFSET = {x: -114, y: -92}; // aj: guess and checked minimap
+const GAME_MINIMAP_ASPECT_RATIO = 1428 / 1503;
+const GAME_MINIMAP_COLLAPSED_SCALE = 0.7;
+const GAME_MINIMAP_EXPANDED_SCALE = 1.2;
+const MOBILE_PORTRAIT_EXPANDED_HEIGHT_VH = 0.5;
+const MOBILE_VIEWPORT_GUTTER_PX = 16;
+const MOBILE_CONTROLS_RESERVED_HEIGHT_PX = 120;
+
+type ViewportState = {
+    width: number;
+    height: number;
+    coarsePointer: boolean;
+};
 
 // scales minimap with viewport, never below minimum
-function computeMinimapHeight() {
-    return Math.max(GAME_MINIMAP_HEIGHT_MIN_PX, Math.round(window.innerHeight * GAME_MINIMAP_HEIGHT_VH));
+function computeMinimapHeight(viewportHeight: number) {
+    return Math.max(GAME_MINIMAP_HEIGHT_MIN_PX, Math.round(viewportHeight * GAME_MINIMAP_HEIGHT_VH));
+}
+
+function getViewportState(): ViewportState {
+    return {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        coarsePointer: window.matchMedia("(pointer: coarse)").matches,
+    };
 }
 
 export default function Game() {
@@ -22,9 +42,50 @@ export default function Game() {
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
-    const [minimapHeightPx, setMinimapHeightPx] = useState(computeMinimapHeight);
+    const [minimapTouchExpanded, setMinimapTouchExpanded] = useState(false);
+    const [viewport, setViewport] = useState(getViewportState);
     const location = useLocation();
     const navigate = useNavigate();
+
+    const useCompactLayout = viewport.coarsePointer || viewport.width <= 768 || viewport.height <= 640;
+    const minimapHeightPx = computeMinimapHeight(viewport.height);
+    const availableTouchMapHeight = Math.max(
+        1,
+        viewport.height - MOBILE_CONTROLS_RESERVED_HEIGHT_PX
+    );
+    const availableTouchMapWidthAsHeight = Math.max(
+        1,
+        (viewport.width - MOBILE_VIEWPORT_GUTTER_PX * 2) / GAME_MINIMAP_ASPECT_RATIO
+    );
+    const portraitTouchMapHeight = Math.min(
+        viewport.height * MOBILE_PORTRAIT_EXPANDED_HEIGHT_VH,
+        availableTouchMapHeight,
+        availableTouchMapWidthAsHeight
+    );
+    const landscapeTouchMapHeight = Math.min(
+        minimapHeightPx * GAME_MINIMAP_EXPANDED_SCALE,
+        availableTouchMapHeight,
+        availableTouchMapWidthAsHeight
+    );
+    const expandedTouchMapHeight = viewport.height >= viewport.width
+        ? portraitTouchMapHeight
+        : landscapeTouchMapHeight;
+    const collapsedTouchMapHeight = Math.min(
+        minimapHeightPx * GAME_MINIMAP_COLLAPSED_SCALE,
+        expandedTouchMapHeight * (GAME_MINIMAP_COLLAPSED_SCALE / GAME_MINIMAP_EXPANDED_SCALE)
+    );
+    const minimapExpanded = minimapHovered || minimapTouchExpanded;
+    const displayedMinimapHeightPx = useCompactLayout
+        ? Math.round(minimapExpanded ? expandedTouchMapHeight : collapsedTouchMapHeight)
+        : minimapHeightPx;
+    const desktopMinimapScale = minimapExpanded
+        ? GAME_MINIMAP_EXPANDED_SCALE
+        : GAME_MINIMAP_COLLAPSED_SCALE;
+    const minimapWrapperScale = useCompactLayout ? 1 : desktopMinimapScale;
+    const guessButtonWidthPx = Math.round(
+        (useCompactLayout ? collapsedTouchMapHeight : minimapHeightPx * GAME_MINIMAP_COLLAPSED_SCALE)
+        * GAME_MINIMAP_ASPECT_RATIO
+    );
 
     const gameState = location.state as GameRouteState;
     const requestedRoundCount = gameState?.roundCount;
@@ -138,7 +199,7 @@ export default function Game() {
     // update minimap height on resize
     useEffect(() => {
         function handleResize() {
-            setMinimapHeightPx(computeMinimapHeight());
+            setViewport(getViewportState());
         }
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
@@ -162,34 +223,44 @@ export default function Game() {
                 />
             )}
 
-            <div className="position-absolute top-0 start-50 translate-middle-x p-3" >
-                <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
+            <div className="game-status-bar">
+                <p className="game-status game-timer text-black text-center bg-white rounded shadow border border-5 border-warning px-3">
                     Timer: {formatTimer(timeRemaining)} 
                 </p>
-            </div>
-
-            <div className="position-absolute top-0 end-0 p-3">
-                <p className="text-black text-center bg-white rounded shadow border border-5 border-warning px-3" style={{fontSize: "30px", fontWeight: "400"}}>
+                <p className="game-status game-round text-black text-center bg-white rounded shadow border border-5 border-warning px-3">
                     Current Round: {roundNumber}/{maxRounds}
                 </p>
             </div>
 
             <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3" style={{alignItems: "flex-end"}}>
-                    {/* shrinks to 70% when idle, expands on hover */}
-                    <div onMouseEnter={() => setMinimapHovered(true)} onMouseLeave={() => setMinimapHovered(false)}
-                         style={{transform: minimapHovered ? "scale(1.2)" : "scale(0.7)", transformOrigin: "bottom right", transition: "transform 0.2s ease"}}>
+                    {/* Desktop expands on hover; touch devices expand on tap. */}
+                    <div
+                        onPointerEnter={(e) => {
+                            if (e.pointerType === "mouse") setMinimapHovered(true);
+                        }}
+                        onPointerLeave={(e) => {
+                            if (e.pointerType === "mouse") setMinimapHovered(false);
+                        }}
+                        style={{
+                            transform: `scale(${minimapWrapperScale})`,
+                            transformOrigin: "bottom right",
+                            transition: "transform 0.2s ease",
+                        }}
+                    >
                         <Minimap
                             pinPosition={pinPosition}
                             unlabeled={unlabeledMap}
                             onPinChange={setPinPosition}
-                            mapHeightPx={minimapHeightPx}
+                            mapHeightPx={displayedMinimapHeightPx}
                             initialScale={GAME_MINIMAP_INITIAL_SCALE}
                             initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
+                            onTouchTap={minimapTouchExpanded ? undefined : () => setMinimapTouchExpanded(true)}
+                            onTouchEdgeTap={minimapTouchExpanded ? () => setMinimapTouchExpanded(false) : undefined}
                         />
                     </div>
 
                     {/* match guess button to minimap size */}
-                    <div style={{width: `${Math.round(minimapHeightPx * (1428 / 1503) * 0.7)}px`}}>
+                    <div style={{width: `${guessButtonWidthPx}px`}}>
                         <GuessButton
                             session_id={sessionId}
                             image_url={roundImageUrl}
