@@ -52,6 +52,7 @@ function levelToApiDifficulty(level: 1 | 2 | 3): ApiDifficulty {
 export default function StartButton() {
 
     const [activePage, setActivePage] = useState<LandingPage>("settings");
+    const [isStarting, setIsStarting] = useState(false);
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 2, // 1: easy, 2: medium, 3: hard
         round_count: 5,
@@ -118,20 +119,24 @@ export default function StartButton() {
      */
 
     async function sendToServer() {
-        await preloadGameAssets();
+        if (isStarting) return;
 
-        const effectiveSettings: GameFormData = formData.leaderboard_mode
-            ? {
-                ...formData,
-                ...LEADERBOARD_PRESET,
-                seed: "",
-                leaderboard_mode: true,
-            }
-            : formData;
-
-        const normalizedSeed = effectiveSettings.seed.trim() || generateRandomSeed();
+        setIsStarting(true);
 
         try {
+            await preloadGameAssets();
+
+            const effectiveSettings: GameFormData = formData.leaderboard_mode
+                ? {
+                    ...formData,
+                    ...LEADERBOARD_PRESET,
+                    seed: "",
+                    leaderboard_mode: true,
+                }
+                : formData;
+
+            const normalizedSeed = effectiveSettings.seed.trim() || generateRandomSeed();
+
             const result = await createSession({
                 difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
                 max_rounds: effectiveSettings.round_count,
@@ -156,6 +161,8 @@ export default function StartButton() {
         } catch (err) {
             console.error("FAIL", err);
             alert(err instanceof ApiError ? err.message : "Unable to start a session. Please try again.");
+        } finally {
+            setIsStarting(false);
         }
     }
 
@@ -171,7 +178,7 @@ export default function StartButton() {
                     id="landing-tab-settings"
                     onClick={() => setActivePage("settings")}
                 >
-                    Game Settings
+                    Play
                 </button>
                 <button
                     className={`landing-tab${activePage === "credits" ? " is-active" : ""}`}
@@ -225,38 +232,31 @@ export default function StartButton() {
                         </button>
                     </div>
 
-                    <div className="game-summary" aria-label="Selected game settings">
-                        <span><small>Difficulty</small>{levelToDifficulty(formData.difficulty)}</span>
-                        <span><small>Rounds</small>{formData.round_count}</span>
-                        <span><small>Timer</small>{formData.timer_length === "none" ? "Off" : `${formData.timer_length}s`}</span>
+                    <div className="settings-panel">
+                        <SettingsMenu
+                            difficulty={levelToDifficulty(formData.difficulty)}
+                            onDifficultyChange={handleDifficultyChange}
+                            unlabeledMap={formData.unlabeled_map}
+                            onUnlabeledMapChange={handleUnlabeledMapChange}
+                            roundCount={formData.round_count}
+                            onRoundCountChange={handleRoundCountChange}
+                            timerLength={formData.timer_length}
+                            onTimerLengthChange={handleTimerLengthChange}
+                            seed={formData.seed}
+                            onSeedChange={handleSeedChange}
+                            outsideOnly={formData.outside_only}
+                            onOutsideOnlyChange={handleOutsideOnlyChange}
+                            leaderboardMode={formData.leaderboard_mode}
+                        />
                     </div>
 
-                    <details className="settings-disclosure" open>
-                        <summary>
-                            <span>Customize game</span>
-                            <span className="summary-chevron" aria-hidden="true">⌄</span>
-                        </summary>
-                        <div className="settings-panel">
-                            <SettingsMenu
-                                difficulty={levelToDifficulty(formData.difficulty)}
-                                onDifficultyChange={handleDifficultyChange}
-                                unlabeledMap={formData.unlabeled_map}
-                                onUnlabeledMapChange={handleUnlabeledMapChange}
-                                roundCount={formData.round_count}
-                                onRoundCountChange={handleRoundCountChange}
-                                timerLength={formData.timer_length}
-                                onTimerLengthChange={handleTimerLengthChange}
-                                seed={formData.seed}
-                                onSeedChange={handleSeedChange}
-                                outsideOnly={formData.outside_only}
-                                onOutsideOnlyChange={handleOutsideOnlyChange}
-                                leaderboardMode={formData.leaderboard_mode}
-                            />
-                        </div>
-                    </details>
-
-                    <button className="start-game-button" type="button" onClick={() => void sendToServer()}>
-                        <span>Start Game</span>
+                    <button
+                        className="start-game-button"
+                        type="button"
+                        onClick={() => void sendToServer()}
+                        disabled={isStarting}
+                    >
+                        <span>{isStarting ? "Starting…" : "Start game"}</span>
                         <span aria-hidden="true">→</span>
                     </button>
                 </div>
