@@ -461,14 +461,15 @@ export default function Minimap({
         onPointerCancel={(e) => finishTouchPointer(e, false)}
         onWheel={handleWheel}
         onClick={allowPinPlacement ? handleClick : undefined}
-        className="rounded shadow border border-5 border-warning"
+        className="minimap-shell"
+        aria-label={allowPinPlacement ? "Campus map. Select your guess location." : "Campus map"}
         style={{
             height: mapHeightPx != null ? `${mapHeightPx}px` : "40vh",
             aspectRatio: `${ASPECT_RATIO}`,
             position: "relative",
             overflow: "hidden",
             userSelect: "none",
-            cursor: "crosshair",
+            cursor: allowPinPlacement ? "crosshair" : "grab",
             touchAction: "none",
         }}
     >

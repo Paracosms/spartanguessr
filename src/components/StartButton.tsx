@@ -17,6 +17,8 @@ type GameFormData = {
     leaderboard_mode: boolean;
 };
 
+type LandingPage = "settings" | "credits" | "leaderboard";
+
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
     Medium: 2,
@@ -49,7 +51,7 @@ function levelToApiDifficulty(level: 1 | 2 | 3): ApiDifficulty {
 
 export default function StartButton() {
 
-    // DEFAULT STATE
+    const [activePage, setActivePage] = useState<LandingPage>("settings");
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 2, // 1: easy, 2: medium, 3: hard
         round_count: 5,
@@ -158,30 +160,115 @@ export default function StartButton() {
     }
 
     return (
-        <div className="start-card">
-            <p className="start-card-label">Game Settings</p>
+        <div className="landing-card-shell">
+            <div className="landing-tabs" role="tablist" aria-label="Landing pages">
+                <button
+                    className={`landing-tab${activePage === "settings" ? " is-active" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activePage === "settings"}
+                    aria-controls="landing-panel"
+                    id="landing-tab-settings"
+                    onClick={() => setActivePage("settings")}
+                >
+                    Game Settings
+                </button>
+                <button
+                    className={`landing-tab${activePage === "credits" ? " is-active" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activePage === "credits"}
+                    aria-controls="landing-panel"
+                    id="landing-tab-credits"
+                    onClick={() => setActivePage("credits")}
+                >
+                    Credits
+                </button>
+                <button
+                    className={`landing-tab${activePage === "leaderboard" ? " is-active" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activePage === "leaderboard"}
+                    aria-controls="landing-panel"
+                    id="landing-tab-leaderboard"
+                    onClick={() => setActivePage("leaderboard")}
+                >
+                    Leaderboard
+                </button>
+            </div>
 
-            <SettingsMenu
-                difficulty={levelToDifficulty(formData.difficulty)}
-                onDifficultyChange={handleDifficultyChange}
-                unlabeledMap={formData.unlabeled_map}
-                onUnlabeledMapChange={handleUnlabeledMapChange}
-                roundCount={formData.round_count}
-                onRoundCountChange={handleRoundCountChange}
-                timerLength={formData.timer_length}
-                onTimerLengthChange={handleTimerLengthChange}
-                seed={formData.seed}
-                onSeedChange={handleSeedChange}
-                outsideOnly={formData.outside_only}
-                onOutsideOnlyChange={handleOutsideOnlyChange}
-                leaderboardMode={formData.leaderboard_mode}
-                onLeaderboardModeChange={handleLeaderboardModeChange}
-            />
+            {activePage === "settings" ? (
+                <div
+                    className="start-card"
+                    id="landing-panel"
+                    role="tabpanel"
+                    aria-labelledby="landing-tab-settings"
+                >
+                    <div className="mode-picker" aria-label="Game mode">
+                        <button
+                            className={`mode-option${!formData.leaderboard_mode ? " is-active" : ""}`}
+                            type="button"
+                            aria-pressed={!formData.leaderboard_mode}
+                            onClick={() => handleLeaderboardModeChange(false)}
+                        >
+                            <span className="mode-name">Classic</span>
+                            <span className="mode-description">Customize gameplay</span>
+                        </button>
+                        <button
+                            className={`mode-option${formData.leaderboard_mode ? " is-active" : ""}`}
+                            type="button"
+                            aria-pressed={formData.leaderboard_mode}
+                            onClick={() => handleLeaderboardModeChange(true)}
+                        >
+                            <span className="mode-name">Ranked</span>
+                            <span className="mode-description">Fixed ruleset with leaderboard</span>
+                        </button>
+                    </div>
 
-            <button className="start-game-button" type="button" onClick={sendToServer}>
-                Start Game
-            </button>
+                    <div className="game-summary" aria-label="Selected game settings">
+                        <span><small>Difficulty</small>{levelToDifficulty(formData.difficulty)}</span>
+                        <span><small>Rounds</small>{formData.round_count}</span>
+                        <span><small>Timer</small>{formData.timer_length === "none" ? "Off" : `${formData.timer_length}s`}</span>
+                    </div>
 
+                    <details className="settings-disclosure" open>
+                        <summary>
+                            <span>Customize game</span>
+                            <span className="summary-chevron" aria-hidden="true">⌄</span>
+                        </summary>
+                        <div className="settings-panel">
+                            <SettingsMenu
+                                difficulty={levelToDifficulty(formData.difficulty)}
+                                onDifficultyChange={handleDifficultyChange}
+                                unlabeledMap={formData.unlabeled_map}
+                                onUnlabeledMapChange={handleUnlabeledMapChange}
+                                roundCount={formData.round_count}
+                                onRoundCountChange={handleRoundCountChange}
+                                timerLength={formData.timer_length}
+                                onTimerLengthChange={handleTimerLengthChange}
+                                seed={formData.seed}
+                                onSeedChange={handleSeedChange}
+                                outsideOnly={formData.outside_only}
+                                onOutsideOnlyChange={handleOutsideOnlyChange}
+                                leaderboardMode={formData.leaderboard_mode}
+                            />
+                        </div>
+                    </details>
+
+                    <button className="start-game-button" type="button" onClick={() => void sendToServer()}>
+                        <span>Start Game</span>
+                        <span aria-hidden="true">→</span>
+                    </button>
+                </div>
+            ) : (
+                <div
+                    className="landing-placeholder"
+                    id="landing-panel"
+                    role="tabpanel"
+                    aria-labelledby={`landing-tab-${activePage}`}
+                    data-page={activePage}
+                />
+            )}
         </div>
     );
 }

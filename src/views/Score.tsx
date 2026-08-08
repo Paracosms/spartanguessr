@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
+import Logo from "../assets/SpartanguessrLogo.png";
+import Pin from "../assets/Pin.png";
 import type { ScoreRouteState } from "../utils/types";
-const SCORE_MINIMAP_HEIGHT_VH = 0.80;
+const SCORE_MINIMAP_HEIGHT_VH = 0.58;
 const SCORE_MINIMAP_ASPECT_RATIO = 1428 / 1503;
 const SCORE_VIEWPORT_GUTTER_PX = 16;
-const SCORE_LAYOUT_GAP_PX = 16;
-const SCORE_STACK_BREAKPOINT_PX = 560;
-const SCORE_ROW_CONTROLS_HEIGHT_PX = 56;
-const SCORE_STACKED_CONTROLS_HEIGHT_PX = 128;
+const SCORE_STACK_BREAKPOINT_PX = 900;
 
 type ViewportState = {
 	width: number;
@@ -23,15 +22,13 @@ function getViewportState(): ViewportState {
 }
 
 function computeMinimapHeight(viewport: ViewportState) {
-	const controlsHeight = viewport.width < SCORE_STACK_BREAKPOINT_PX
-		? SCORE_STACKED_CONTROLS_HEIGHT_PX
-		: SCORE_ROW_CONTROLS_HEIGHT_PX;
-	const availableHeight = viewport.height
-		- SCORE_VIEWPORT_GUTTER_PX * 2
-		- SCORE_LAYOUT_GAP_PX
-		- controlsHeight;
-	const availableWidthAsHeight = (viewport.width - SCORE_VIEWPORT_GUTTER_PX * 2)
-		/ SCORE_MINIMAP_ASPECT_RATIO;
+	const isShortLandscape = viewport.width > viewport.height && viewport.height <= 560;
+	const isStacked = viewport.width < SCORE_STACK_BREAKPOINT_PX && !isShortLandscape;
+	const availableHeight = isStacked ? viewport.height - 260 : viewport.height - 64;
+	const availableMapWidth = isStacked
+		? viewport.width - SCORE_VIEWPORT_GUTTER_PX * 2
+		: viewport.width * 0.58;
+	const availableWidthAsHeight = availableMapWidth / SCORE_MINIMAP_ASPECT_RATIO;
 
 	return Math.max(1, Math.round(Math.min(
 		viewport.height * SCORE_MINIMAP_HEIGHT_VH,
@@ -54,6 +51,7 @@ export default function Score() {
 	const nextRoundNumber = routeState?.next_round_number;
 	const [viewport, setViewport] = useState(getViewportState);
 	const minimapHeightPx = computeMinimapHeight(viewport);
+	const minimapWidthPx = Math.round(minimapHeightPx * SCORE_MINIMAP_ASPECT_RATIO);
 
     const unlabeled = routeState?.gameState?.unlabeledMap ?? false;
 
@@ -97,71 +95,58 @@ export default function Score() {
 	}
 
 	return (
-		<main
-			style={{
-				position: "relative",
-				width: "100vw",
-				height: "100vh",
-				overflow: "hidden",
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-			}}
-		>
-			<div
-				style={{
-					position: "absolute",
-					inset: 0,
-					backgroundImage: `url(${imageUrl})`,
-					backgroundSize: "cover",
-					backgroundPosition: "center",
-					filter: "blur(14px)",
-					transform: "scale(1.05)",
-				}}
-			/>
-			<div
-				style={{
-					position: "absolute",
-					inset: 0,
-					background: "rgba(0, 0, 0, 0.35)",
-				}}
-			/>
+		<main className="score-page">
+			<div className="score-background" style={{backgroundImage: `url(${imageUrl})`}} />
+			<div className="score-overlay" aria-hidden="true" />
 
-			<section
-				className="score-layout"
-				style={{
-					zIndex: 2,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-					gap: "1rem",
-				}}
-			>
-				<Minimap
-					pinPosition={guessPos}
-					onPinChange={() => {}}
-					allowPinPlacement={false}
-					mapHeightPx={minimapHeightPx}
-                    unlabeled={unlabeled}
-					initializeScaleToMinZoom
-					actualPosition={actualPos}
-					showActualDot
-					showAlignmentLine={!timedOutWithoutGuess}
-				/>
+			<header className="score-brand">
+				<img className="screen-brand-logo" src={Logo} alt="SpartanGuessr" />
+			</header>
 
-				<div className="score-controls">
-					<button
-						type="button"
-						className="start-game-button score-continue"
-						onClick={handleContinue}
-					>
-						Continue
-					</button>
-
-					<p className="score-summary text-black text-center bg-white rounded shadow border border-5 border-warning px-3 py-2 m-0">
-						Round {routeState.round_number}: {routeState.round_score} points
-					</p>
+			<section className="score-layout">
+				<div className="score-map-panel" style={{width: `${minimapWidthPx}px`}}>
+					<div className="panel-label">
+						<span>Round {routeState.round_number} reveal</span>
+						<small>
+							<img className="panel-pin-icon" src={Pin} alt="" />
+							Your pin <i /> Actual location
+						</small>
+					</div>
+					<Minimap
+						pinPosition={guessPos}
+						onPinChange={() => {}}
+						allowPinPlacement={false}
+						mapHeightPx={minimapHeightPx}
+						unlabeled={unlabeled}
+						initializeScaleToMinZoom
+						actualPosition={actualPos}
+						showActualDot
+						showAlignmentLine={!timedOutWithoutGuess}
+					/>
 				</div>
+
+				<aside className="score-card">
+					<div className="score-card-primary">
+						<div className="round-score">
+							<strong>{(routeState.round_score ?? 0).toLocaleString()}</strong>
+							<span>points</span>
+						</div>
+					</div>
+					<div className="score-card-divider" aria-hidden="true" />
+
+					<div className="score-card-secondary">
+						<p className="eyebrow">{isGameComplete ? "Final round complete" : "Round complete"}</p>
+						<div className="round-progress" aria-label={`Round ${routeState.round_number} of ${gameState?.roundCount ?? routeState.round_number}`}>
+							<span>Progress</span>
+							<strong>{routeState.round_number} / {gameState?.roundCount ?? routeState.round_number}</strong>
+						</div>
+
+						<button type="button" className="primary-action score-continue" onClick={handleContinue}>
+							<span>{isGameComplete ? "Finish game" : "Next round"}</span>
+							<span aria-hidden="true">→</span>
+						</button>
+					</div>
+				</aside>
 			</section>
 		</main>
 	);

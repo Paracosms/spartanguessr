@@ -102,8 +102,8 @@ export default function GuessButton({
     }, [autoSubmitSignal, coordinates, sendToServer]);
 
     return (
-        <button className="start-game-button" type="button" onClick={() => void sendToServer()} disabled={!canManuallySubmit || isSubmitting}>
-            Guess
+        <button className="guess-button" type="button" onClick={() => void sendToServer()} disabled={!canManuallySubmit || isSubmitting}>
+            <span>{isSubmitting ? "Locking in…" : coordinates ? "Guess" : "Click minimap to guess location"}</span>
         </button>
     )
 }

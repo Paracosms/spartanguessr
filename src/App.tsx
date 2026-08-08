@@ -16,15 +16,15 @@ function LandingPage() {
 
     return (
         <main className="landing-page">
-            <section>
-                <div className="d-flex justify-content-center">
-                    <img className="landing-logo" src={Logo} alt="SpartanGuessr"/>
+            <section className="landing-shell">
+                <div className="landing-content">
+                    <img className="landing-logo" src={Logo} alt="SpartanGuessr" />
+                    <p className="landing-subtitle">How well do you know SJSU?</p>
+                    <StartButton />
                 </div>
-                <p className="subtitle" >
-                    How well do you know SJSU?
-                </p>
-                <StartButton />
             </section>
+
+            <p className="landing-footnote">made with love by andrew + friends :]</p>
         </main>
     );
 }

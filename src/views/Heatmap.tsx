@@ -42,50 +42,35 @@ export default function Heatmap() {
     }, []);
 
     return (
-        <main
-            style={{
-                backgroundColor: "#ffffff",
-                width: "100vw",
-                height: "100vh",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-            }}
-        >
-            <Minimap
-                pinPosition={null}
-                onPinChange={() => {}}
-                unlabeled={false}
-                allowPinPlacement={false}
-                mapHeightPx={minimapHeightPx}
-                initializeScaleToMinZoom
-                heatmapPoints={uniqueLocations}
-                heatmapDotSize={dotSize}
-            />
-            <div
-                style={{
-                    position: "absolute",
-                    bottom: "16px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    background: "rgba(0,0,0,0.7)",
-                    padding: "8px 16px",
-                    borderRadius: "20px",
-                }}
-            >
-                <span style={{ color: "#fff", fontSize: "14px", fontWeight: 600 }}>Dot Size</span>
+        <main className="heatmap-page">
+            <header className="heatmap-header">
+                <p className="eyebrow">Behind the game</p>
+                <h1>Campus coverage</h1>
+                <p>Every possible SpartanGuessr drop, mapped.</p>
+            </header>
+
+            <div className="heatmap-map">
+                <Minimap
+                    pinPosition={null}
+                    onPinChange={() => {}}
+                    unlabeled={false}
+                    allowPinPlacement={false}
+                    mapHeightPx={minimapHeightPx}
+                    initializeScaleToMinZoom
+                    heatmapPoints={uniqueLocations}
+                    heatmapDotSize={dotSize}
+                />
+            </div>
+
+            <div className="heatmap-controls">
+                <span><strong>Dot size</strong><small>{dotSize}px</small></span>
                 <input
                     type="range"
                     min={4}
                     max={24}
                     value={dotSize}
                     onChange={(e) => setDotSize(Number(e.target.value))}
-                    style={{ width: "120px", cursor: "pointer", accentColor: "#ff3b30" }}
+                    aria-label="Heatmap dot size"
                 />
             </div>
         </main>

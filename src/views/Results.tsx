@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import Background from "../assets/LeaderboardBackground.jpg";
+import Logo from "../assets/SpartanguessrLogo.png";
 import type { ResultsRouteState } from "../utils/types";
 import {
     getLeaderboard,
@@ -118,139 +119,69 @@ export default function Results() {
     }
 
     return (
-        <div style={{
-            minHeight: "100vh",
-            position: "relative",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            padding: "0 1rem",
-        }}>
-            <div style={{
-                position: "fixed",
-                inset: "-20px",
-                backgroundImage: `url(${Background})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                filter: "blur(1px) brightness(0.7)",
-                zIndex: 0,
-            }} />
+        <main className="results-page">
+            <div className="results-background" style={{backgroundImage: `url(${Background})`}} />
+            <div className="results-overlay" aria-hidden="true" />
 
-            <div style={{ position: "relative", zIndex: 1, width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <header className="results-header">
+                <div className="results-brand">
+                    <img className="screen-brand-logo" src={Logo} alt="SpartanGuessr" />
+                </div>
+                <span className="results-mode">{leaderboardMode ? "Ranked run" : "Classic run"}</span>
+            </header>
 
-                <div style={{ marginBottom: "1rem", textAlign: "center" }}>
-                    <p style={{ color: GOLD, fontSize: "0.8rem", marginTop: "0.75rem", marginBottom: "0.25rem", letterSpacing: "0.1em", fontWeight: 700 }}>
-                        YOUR SCORE
-                    </p>
-                    <p style={{ color: GOLD, fontSize: "6.6rem", marginTop: 0, marginBottom: 0, fontWeight: 800, WebkitTextStroke: `6px ${BLUE}`, display: "inline-block", lineHeight: 1.1 }}>
-                        {totalScore.toLocaleString()}
-                    </p>
+            <section className="results-shell">
+                <div className="results-hero">
+                    <div className="final-score">
+                        <span>Your score</span>
+                        <strong style={{WebkitTextStrokeColor: BLUE}}>{totalScore.toLocaleString()}</strong>
+                        <small>points</small>
+                    </div>
+
+                    {leaderboardMode && sessionId && qualifies && !submitted && (
+                        <div className="qualification-card">
+                            <p>You made the top 50.</p>
+                            <form onSubmit={handleSubmitName}>
+                                <label className="visually-hidden" htmlFor="leaderboard-name">Leaderboard name</label>
+                                <input
+                                    id="leaderboard-name"
+                                    type="text"
+                                    placeholder="ENTER YOUR NAME"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value.toUpperCase())}
+                                    maxLength={20}
+                                />
+                                <button type="submit">Submit</button>
+                            </form>
+                        </div>
+                    )}
+
+                    {!leaderboardMode && (
+                        <p className="ranked-invite">Try Ranked to compete for a spot on the leaderboard.</p>
+                    )}
                 </div>
 
-                {leaderboardMode && sessionId && qualifies && !submitted && (
-                    <div style={{
-                        marginBottom: "2rem",
-                        textAlign: "center",
-                        border: `2px solid ${GOLD}`,
-                        padding: "1.25rem",
-                        background: "rgba(0,0,0,0.5)",
-                        maxWidth: 420,
-                        width: "100%",
-                        boxSizing: "border-box",
-                    }}>
-                        <p style={{ color: "#FF79B8", fontSize: "0.95rem", marginBottom: "1rem", fontWeight: 700 }}>
-                            YOU MADE THE TOP 50!
-                        </p>
-                        <form onSubmit={handleSubmitName} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                            <input
-                                type="text"
-                                placeholder="Enter your name"
-                                value={name}
-                                onChange={(e) => setName(e.target.value.toUpperCase())}
-                                maxLength={20}
-                                style={{
-                                    background: "rgba(0,0,0,0.4)",
-                                    border: `2px solid ${GOLD}`,
-                                    color: GOLD,
-                                    fontSize: "1rem",
-                                    padding: "0.6rem 0.75rem",
-                                    outline: "none",
-                                    textAlign: "center",
-                                    letterSpacing: "0.1em",
-                                    fontFamily: "inherit",
-                                }}
-                            />
-                            <button type="submit" style={{
-                                background: GOLD,
-                                border: "none",
-                                color: "#000",
-                                fontSize: "1rem",
-                                fontWeight: 700,
-                                padding: "0.6rem",
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                            }}>
-                                SUBMIT
-                            </button>
-                        </form>
-                    </div>
-                )}
+                <section className="leaderboard-card">
+                    <header>
+                        <div>
+                            <h2>Leaderboard</h2>
+                        </div>
+                    </header>
 
-                {!leaderboardMode && (
-                    <p style={{ color: GOLD, fontSize: "0.85rem", marginBottom: "1.5rem", letterSpacing: "0.1em", fontWeight: 700 }}>
-                        PLAY LEADERBOARD MODE TO COMPETE!
-                    </p>
-                )}
+                    {submitted && (
+                        <p className="submission-message">Score saved — you ranked #{position}.</p>
+                    )}
 
-                <div style={{
-                    width: "100%",
-                    maxWidth: 520,
-                    background: "rgba(0,0,0,0.72)",
-                    boxSizing: "border-box",
-                    display: "flex",
-                    flexDirection: "column",
-                    maxHeight: "58vh",
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                }}>
-                    <div style={{ flexShrink: 0, padding: "0.6rem 1.5rem 0" }}>
-                        {submitted && (
-                            <p style={{ color: GOLD, fontSize: "1rem", fontWeight: 700, margin: "0 0 0.3rem", textAlign: "center" }}>
-                                Score saved! You ranked #{position}
-                            </p>
-                        )}
-                        <h2 style={{
-                            color: GOLD,
-                            fontSize: "1.2rem",
-                            textAlign: "center",
-                            letterSpacing: "0.15em",
-                            margin: 0,
-                            paddingBottom: "0.5rem",
-                            fontWeight: 800,
-                        }}>
-                            HIGH SCORES
-                        </h2>
-                    </div>
-
-                    <div className="leaderboard-scroll" style={{ overflowY: "auto", padding: "0 1.5rem 1.5rem" }}>
+                    <div className="leaderboard-scroll">
                         {leaderboard.length === 0 ? (
-                            <p style={{ color: "#ccc", textAlign: "center" }}>No scores yet. Be the first!</p>
+                            <p className="empty-leaderboard">No scores yet. Be the first Spartan on the board.</p>
                         ) : (
-                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <table>
                                 <thead>
                                     <tr>
-                                        {["RANK", "SCORE", "NAME"].map((h) => (
-                                            <th key={h} style={{
-                                                color: BLUE,
-                                                fontSize: "0.85rem",
-                                                padding: "0.5rem 0.75rem",
-                                                letterSpacing: "0.1em",
-                                                borderBottom: `3px solid ${GOLD}`,
-                                                textAlign: "center",
-                                                fontWeight: 700,
-                                            }}>{h}</th>
-                                        ))}
+                                        <th>Rank</th>
+                                        <th>Spartan</th>
+                                        <th>Score</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -258,42 +189,22 @@ export default function Results() {
                                         const color = getRowColor(entry.rank);
                                         return (
                                             <tr key={index}>
-                                                <td style={{ color, fontSize: "0.85rem", padding: "0.5rem 0.75rem", textAlign: "center", fontWeight: 600 }}>
-                                                    {getRankLabel(entry.rank)}
-                                                </td>
-                                                <td style={{ color, fontSize: "0.85rem", padding: "0.5rem 0.75rem", textAlign: "center", fontWeight: 600 }}>
-                                                    {entry.score.toLocaleString()}
-                                                </td>
-                                                <td style={{ color, fontSize: "0.85rem", padding: "0.5rem 0.75rem", textAlign: "center", fontWeight: 600 }}>
-                                                    {entry.name.toUpperCase()}
-                                                </td>
+                                                <td style={{color}}><span>{getRankLabel(entry.rank)}</span></td>
+                                                <td>{entry.name.toUpperCase()}</td>
+                                                <td>{entry.score.toLocaleString()}</td>
                                             </tr>
                                         );
                                     })}
                                 </tbody>
                             </table>
-                        )}
+                            )}
                     </div>
-                </div>
 
-                <button
-                    onClick={returnToMainMenu}
-                    style={{
-                        marginTop: "1.5rem",
-                        padding: "0.75rem 2rem",
-                        background: GOLD,
-                        color: "#000",
-                        fontWeight: 700,
-                        fontSize: "1rem",
-                        border: "none",
-                        borderRadius: "14px",
-                        cursor: "pointer",
-                        fontFamily: "inherit",}}
-                >
-                    Play Again
-                </button>
-
-            </div>
-        </div>
+                    <button className="primary-action results-play-again" onClick={returnToMainMenu}>
+                        <span>Play again</span><span aria-hidden="true">↻</span>
+                    </button>
+                </section>
+            </section>
+        </main>
     );
 }
