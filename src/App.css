@@ -166,22 +166,33 @@ summary:focus-visible {
 }
 
 .landing-tab {
-	flex: 0 0 auto;
-	padding: 0.78rem 1rem 0.72rem;
+	flex: 1 1 0;
+	min-width: 0;
+	height: 35px;
+	padding: 0 0.5rem;
 	border: 1px solid rgba(255, 255, 255, 0.15);
 	border-bottom: 0;
 	border-radius: 12px 12px 0 0;
 	background: rgba(7, 21, 36, 0.68);
 	color: var(--muted);
-	font-size: 0.72rem;
+	font-size: 1rem;
 	font-weight: 850;
 	letter-spacing: 0.04em;
 	white-space: nowrap;
 	cursor: pointer;
 	transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
+
+.landing-tab:nth-child(2) {
+	height: 30px;
+}
+
+.landing-tab:nth-child(3) {
+	height: 25px;
+}
+
 .landing-tab + .landing-tab {
-	margin-left: 0.35rem;
+	margin-left: 0;
 }
 
 .landing-tab:hover,
