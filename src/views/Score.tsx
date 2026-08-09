@@ -113,7 +113,7 @@ export default function Score() {
 			<section className="score-layout">
 				<div className="score-map-panel" style={{width: `${minimapWidthPx}px`}}>
 					<div className="panel-label">
-						<span>Round {routeState.round_number} reveal</span>
+						<span>Round {routeState.round_number}</span>
 						<small>
 							<img className="panel-pin-icon" src={Pin} alt="" />
 							Your pin <i /> Actual location

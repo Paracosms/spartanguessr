@@ -366,22 +366,37 @@ export default function Minimap({
 
     // Listens for mouse input
     useEffect(() => {
-        // Runs every time the mouse moves
-        function handleMouseMove(e: MouseEvent) {
-            if (!dragging) return;
+        let pendingMousePosition: Point | null = null;
+        let panFrame: number | null = null;
 
+        function applyPendingMouseMove() {
+            panFrame = null;
+            if (!pendingMousePosition) return;
+
+            const client = pendingMousePosition;
+            pendingMousePosition = null;
             // Obtain the div
             const container = containerRef.current;
             if (!container) return;
 
             const width = container.clientWidth;
             const height = container.clientHeight;
-            const mouse = getLocalPoint(container, e.clientX, e.clientY);
+            const mouse = getLocalPoint(container, client.x, client.y);
 
             const nextOffset = {
                 x: mouse.x - dragStartRef.current.x,
                 y: mouse.y - dragStartRef.current.y,
             };
+
+            setView((prev) => ({
+                ...prev,
+                offset: clampOffset(nextOffset, prev.scale, width, height),
+            }));
+        }
+
+        // Runs every time the mouse moves
+        function handleMouseMove(e: MouseEvent) {
+            if (!dragging) return;
 
             if (
                 !dragMovedRef.current &&
@@ -393,13 +408,15 @@ export default function Minimap({
                 dragMovedRef.current = true;
             }
 
-            setView((prev) => ({
-                ...prev,
-                offset: clampOffset(nextOffset, prev.scale, width, height),
-            }));
+            pendingMousePosition = { x: e.clientX, y: e.clientY };
+            if (panFrame === null) panFrame = requestAnimationFrame(applyPendingMouseMove);
         }
 
         function handleMouseUp() {
+            if (panFrame !== null) {
+                cancelAnimationFrame(panFrame);
+                applyPendingMouseMove();
+            }
             setDragging(false);
             setIsInteracting(false);
         }
@@ -410,6 +427,7 @@ export default function Minimap({
 
         // Clean up functions to remove duplicates of event listeners
         return () => {
+            if (panFrame !== null) cancelAnimationFrame(panFrame);
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
         };
@@ -502,7 +520,6 @@ export default function Minimap({
             }}
         >
             <img
-                className="minimap-img"
                 src={unlabeled ? mapUnlabeled : mapLabeled}
                 alt=""
                 draggable={false}
