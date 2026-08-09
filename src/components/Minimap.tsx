@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import mapLabeled from "../assets/MapLabeled.jpg";
-import mapUnlabeled from "../assets/MapUnlabeled.jpg";
+import mapLabeled from "../assets/MapLabeled.svg";
+import mapUnlabeled from "../assets/MapUnlabeled.svg";
 import pin from "../assets/Pin.png";
 import type { Point } from "../utils/types";
 type ViewState = { scale: number; offset: Point };
@@ -486,7 +486,7 @@ export default function Minimap({
             <img
                 className="minimap-img"
                 src={unlabeled ? mapUnlabeled : mapLabeled}
-                alt="Campus Minimap"
+                alt=""
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 style={{
@@ -516,7 +516,7 @@ export default function Minimap({
             {pinPosition && (
                 <img
                     src={pin}
-                    alt="Selected location"
+                    alt=""
                     draggable={false}
                     style={{
                         position: "absolute",

@@ -1,5 +1,5 @@
-import mapLabeled from "../assets/MapLabeled.jpg";
-import mapUnlabeled from "../assets/MapUnlabeled.jpg";
+import mapLabeled from "../assets/MapLabeled.svg";
+import mapUnlabeled from "../assets/MapUnlabeled.svg";
 import pin from "../assets/Pin.png";
 import { getRandomImage } from "./api.tsx";
 
