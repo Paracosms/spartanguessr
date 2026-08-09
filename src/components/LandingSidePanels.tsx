@@ -3,6 +3,9 @@ import Minimap from "./Minimap.tsx";
 import { getLeaderboard } from "../utils/api.tsx";
 import type { LeaderboardEntry } from "../utils/api.tsx";
 import type { Point } from "../utils/types.tsx";
+import MouseLeftClick from "../assets/MouseLeftClick.svg";
+import HandGrabbing from "../assets/HandGrabbing.svg";
+import MouseScroll from "../assets/MouseScroll.svg";
 
 const RANK_COLORS: Record<number, string> = { 1: "#FFC108", 2: "#C0C0C0", 3: "#CD7F32" };
 
@@ -21,7 +24,9 @@ export function LandingMapPanel() {
 
     return (
         <aside className="landing-side-panel landing-map-panel">
-            <p className="landing-map-instruction">Left click to place flag</p>
+            <header>
+                <h2>Controls</h2>
+            </header>
             <div className="landing-minimap-stage">
                 <Minimap
                     pinPosition={pinPosition}
@@ -31,7 +36,13 @@ export function LandingMapPanel() {
                     initialOffset={{x: -114, y: -92}}
                 />
             </div>
-            <p className="landing-map-instruction">Click and drag to pan · Mouse scroll to zoom</p>
+            <div className="landing-map-instruction" aria-label="Map controls">
+                <span>Flag: <img src={MouseLeftClick} alt="" /></span>
+                <span aria-hidden="true">|</span>
+                <span>Pan: <img src={HandGrabbing} alt="" /></span>
+                <span aria-hidden="true">|</span>
+                <span>Zoom: <img src={MouseScroll} alt="" /></span>
+            </div>
         </aside>
     );
 }
