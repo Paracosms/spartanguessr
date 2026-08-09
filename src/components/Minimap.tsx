@@ -81,6 +81,7 @@ export default function Minimap({
     }));
     const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
     const [dragging, setDragging] = useState(false);
+    const [isInteracting, setIsInteracting] = useState(false);
     const { scale, offset } = view;
     const dragStartRef = useRef({x:0, y:0});
     const dragMouseStartRef = useRef({x:0, y:0});
@@ -94,10 +95,15 @@ export default function Minimap({
     const touchMovedRef = useRef(false);
     const touchHadMultiplePointersRef = useRef(false);
     const ignoreMouseClickUntilRef = useRef(0);
+    const wheelIdleTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         viewRef.current = view;
     }, [view]);
+
+    useEffect(() => () => {
+        if (wheelIdleTimerRef.current !== null) window.clearTimeout(wheelIdleTimerRef.current);
+    }, []);
 
     // Place pin
     function placePin(clientX: number, clientY: number) {
@@ -155,6 +161,7 @@ export default function Minimap({
 
         e.preventDefault();
         setDragging(true);
+        setIsInteracting(true);
         dragMovedRef.current = false;
         dragMouseStartRef.current = { x: e.clientX, y: e.clientY };
 
@@ -173,6 +180,13 @@ export default function Minimap({
     // Zoom
     function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
         e.preventDefault();
+
+        setIsInteracting(true);
+        if (wheelIdleTimerRef.current !== null) window.clearTimeout(wheelIdleTimerRef.current);
+        wheelIdleTimerRef.current = window.setTimeout(() => {
+            setIsInteracting(false);
+            wheelIdleTimerRef.current = null;
+        }, 120);
 
         // Obtain the div
         const container = containerRef.current;
@@ -242,6 +256,7 @@ export default function Minimap({
         if (e.pointerType !== "touch") return;
 
         e.preventDefault();
+        setIsInteracting(true);
         e.currentTarget.setPointerCapture(e.pointerId);
         const client = { x: e.clientX, y: e.clientY };
         activeTouchPointersRef.current.set(e.pointerId, client);
@@ -332,6 +347,7 @@ export default function Minimap({
         }
 
         if (activeTouchPointersRef.current.size === 0) {
+            setIsInteracting(false);
             touchPanRef.current = null;
             pinchRef.current = null;
             touchMovedRef.current = false;
@@ -385,6 +401,7 @@ export default function Minimap({
 
         function handleMouseUp() {
             setDragging(false);
+            setIsInteracting(false);
         }
 
         // Enable functionality even when mouse leaves <div>
@@ -480,6 +497,7 @@ export default function Minimap({
                 height: `${MINIMAP_HEIGHT}px`,
                 transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
                 transformOrigin: "top left",
+                willChange: isInteracting ? "transform" : undefined,
                 pointerEvents: "none",
             }}
         >
