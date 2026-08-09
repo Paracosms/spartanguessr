@@ -86,7 +86,6 @@ export default function GuessButton({
                 ? err.message
                 : "Unable to submit your guess. Please try again.";
             alert(`Error: ${message}`);
-        } finally {
             setIsSubmitting(false);
         }
     }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, session_id]);
@@ -98,7 +97,7 @@ export default function GuessButton({
 
         lastAutoSubmitSignal.current = autoSubmitSignal;
         const timeoutCoordinates = coordinates ?? { x: 99999, y: 99999 };
-        void sendToServer(timeoutCoordinates);
+        void Promise.resolve().then(() => sendToServer(timeoutCoordinates));
     }, [autoSubmitSignal, coordinates, sendToServer]);
 
     return (

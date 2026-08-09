@@ -67,28 +67,47 @@ summary:focus-visible {
 
 .primary-action,
 .start-game-button,
-.guess-button {
+.guess-button,
+.qualification-card button {
+	position: relative;
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	width: 100%;
+	justify-content: center;
+	min-height: 48px;
+	padding: 0.85rem 1.15rem;
 	border: 0;
-	border-radius: 14px;
+	border-radius: 8px;
 	background: var(--gold);
 	color: #071018;
+	font-size: 0.86rem;
 	font-weight: 900;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	box-shadow: 0 12px 34px rgba(255, 193, 8, 0.24);
+	letter-spacing: 0.01em;
+	text-transform: none;
+	box-shadow: none;
 	transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
-.primary-action:hover,
-.start-game-button:hover,
-.guess-button:hover:not(:disabled) {
-	transform: translateY(-2px);
+.primary-action,
+.start-game-button,
+.guess-button {
+	width: 100%;
+}
+
+.primary-action:hover:not(:disabled),
+.start-game-button:hover:not(:disabled),
+.guess-button:hover:not(:disabled),
+.qualification-card button:hover:not(:disabled) {
+	transform: translateY(-1px);
 	background: #ffd044;
-	box-shadow: 0 16px 38px rgba(255, 193, 8, 0.32);
+	box-shadow: none;
+}
+
+.primary-action:active:not(:disabled),
+.start-game-button:active:not(:disabled),
+.guess-button:active:not(:disabled),
+.qualification-card button:active:not(:disabled) {
+	transform: translateY(1px);
+	background: #eeb300;
 }
 
 /* Landing */
@@ -598,32 +617,10 @@ summary:focus-visible {
 	background-color: var(--gold);
 }
 
-.start-game-button {
-	position: relative;
-	justify-content: center;
-	min-height: 48px;
-	padding: 0.85rem 1.15rem;
-	border-radius: 8px;
-	font-size: 0.86rem;
-	letter-spacing: 0.01em;
-	text-transform: none;
-	box-shadow: none;
-}
-
+.primary-action > span:last-child,
 .start-game-button > span:last-child {
 	position: absolute;
 	right: 1.15rem;
-}
-
-.start-game-button:hover:not(:disabled) {
-	transform: translateY(-1px);
-	background: #ffd044;
-	box-shadow: none;
-}
-
-.start-game-button:active:not(:disabled) {
-	transform: translateY(1px);
-	background: #eeb300;
 }
 
 .start-game-button:disabled {
@@ -867,10 +864,6 @@ summary:focus-visible {
 }
 
 .guess-button {
-	justify-content: center;
-	min-height: 52px;
-	padding: 0.85rem 1rem;
-	font-size: 0.76rem;
 	line-height: 1.25;
 	text-align: center;
 }
@@ -1059,11 +1052,6 @@ summary:focus-visible {
 	color: var(--gold);
 }
 
-.score-continue {
-	padding: 1rem;
-	font-size: 0.76rem;
-}
-
 /* Final results */
 
 .results-page {
@@ -1189,6 +1177,7 @@ summary:focus-visible {
 
 .qualification-card input {
 	min-width: 0;
+	margin-inline-end: 6px;
 	padding: 0.75rem;
 	border: 1px solid var(--line);
 	border-radius: 9px;
@@ -1200,22 +1189,15 @@ summary:focus-visible {
 }
 
 .qualification-card button {
-	padding: 0.75rem 1rem;
-	border: 0;
-	border-radius: 9px;
-	background: var(--gold);
-	color: var(--navy-950);
-	font-size: 0.68rem;
-	font-weight: 900;
-	text-transform: uppercase;
+	flex-shrink: 0;
 }
 
 .results-play-again {
 	width: calc(100% - 3rem);
 	max-width: none;
 	margin: 1rem 1.5rem 1.5rem;
-	padding: 0.85rem 1rem;
-	font-size: 0.76rem;
+	padding: 0.85rem 1.15rem;
+	font-size: 0.86rem;
 	flex-shrink: 0;
 }
 
@@ -1581,8 +1563,6 @@ summary:focus-visible {
 
 	.guess-button {
 		min-height: 48px;
-		padding: 0.75rem 0.85rem;
-		font-size: 0.68rem;
 	}
 }
 
@@ -1683,6 +1663,10 @@ summary:focus-visible {
 		grid-template-columns: 1fr;
 	}
 
+	.qualification-card input {
+		margin-inline-end: 0;
+	}
+
 	.leaderboard-card {
 		min-height: 0;
 		border-radius: 18px;
@@ -1754,7 +1738,10 @@ summary:focus-visible {
 		padding-block: 0.55rem;
 	}
 
-	.start-game-button {
+	.primary-action,
+	.start-game-button,
+	.guess-button,
+	.qualification-card button {
 		padding: 0.72rem 0.9rem;
 	}
 
@@ -1813,7 +1800,7 @@ summary:focus-visible {
 	}
 
 	.results-play-again {
-		padding: 0.75rem 1rem;
+		padding: 0.85rem 1.15rem;
 	}
 
 	.leaderboard-card {
@@ -1853,7 +1840,10 @@ summary:focus-visible {
 		padding-block: 0.6rem;
 	}
 
-	.start-game-button {
+	.primary-action,
+	.start-game-button,
+	.guess-button,
+	.qualification-card button {
 		padding-block: 0.75rem;
 	}
 

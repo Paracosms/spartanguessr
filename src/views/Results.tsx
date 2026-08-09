@@ -168,7 +168,7 @@ export default function Results() {
                     </header>
 
                     {submitted && (
-                        <p className="submission-message">Score saved — you ranked #{position}.</p>
+                        <p className="submission-message">Score saved. You ranked #{position}.</p>
                     )}
 
                     <div className="leaderboard-scroll">
