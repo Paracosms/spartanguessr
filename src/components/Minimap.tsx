@@ -39,13 +39,13 @@ type MinimapProps = {
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
 const PIN_SIZE_PX = 30;
 const PIN_TIP_X_PERCENT = (203 / 388) * 100; // visible tip center in the source sprite
-const INITIAL_SCALE = 1; // prod = 1.0
+const INITIAL_SCALE = 1;
 const ZOOM_SPEED = 0.05;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
 const BASE_MIN_ZOOM = 0.20;
 const MAX_ZOOM = 2;
-const FIT_ZOOM_PADDING = 0.98;
+const FIT_ZOOM_PADDING = 1.0;
 const TOUCH_DRAG_THRESHOLD_PX = 8;
 const TOUCH_CLICK_SUPPRESSION_MS = 750;
 

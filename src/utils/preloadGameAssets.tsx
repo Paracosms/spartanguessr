@@ -1,9 +1,10 @@
 import mapLabeled from "../assets/MapLabeled.svg";
 import mapUnlabeled from "../assets/MapUnlabeled.svg";
 import pin from "../assets/Pin.png";
+import spear from "../assets/WebIcon.png";
 import { getRandomImage } from "./api.tsx";
 
-const GAME_ASSETS = [mapLabeled, mapUnlabeled, pin];
+const GAME_ASSETS = [mapLabeled, mapUnlabeled, pin, spear];
 
 let preloadPromise: Promise<void> | null = null;
 
