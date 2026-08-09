@@ -36,7 +36,11 @@ export function LandingMapPanel() {
     );
 }
 
-export function LandingLeaderboardPanel() {
+type LandingLeaderboardPanelProps = {
+    embedded?: boolean;
+};
+
+export function LandingLeaderboardPanel({ embedded = false }: LandingLeaderboardPanelProps) {
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
     useEffect(() => {
@@ -54,7 +58,14 @@ export function LandingLeaderboardPanel() {
     }, []);
 
     return (
-        <aside className="landing-side-panel landing-leaderboard-panel">
+        <aside
+            className={`${embedded ? "landing-leaderboard-tab-panel" : "landing-side-panel"} landing-leaderboard-panel`}
+            {...(embedded && {
+                id: "landing-panel",
+                role: "tabpanel",
+                "aria-labelledby": "landing-tab-leaderboard",
+            })}
+        >
             <header>
                 <h2>Leaderboard</h2>
             </header>

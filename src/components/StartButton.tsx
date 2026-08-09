@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LandingLeaderboardPanel } from "./LandingSidePanels.tsx";
 import SettingsMenu from "./SettingsMenu.tsx";
 import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
 import { ApiError, createSession } from "../utils/api.tsx";
@@ -17,7 +18,9 @@ type GameFormData = {
     leaderboard_mode: boolean;
 };
 
-type LandingPage = "settings" | "credits";
+type LandingPage = "settings" | "credits" | "leaderboard";
+
+const COMPACT_LANDING_QUERY = "(max-width: 899px), (orientation: portrait), (pointer: coarse)";
 
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
@@ -52,6 +55,9 @@ function levelToApiDifficulty(level: 1 | 2 | 3): ApiDifficulty {
 export default function StartButton() {
 
     const [activePage, setActivePage] = useState<LandingPage>("settings");
+    const [showLeaderboardTab, setShowLeaderboardTab] = useState(() =>
+        window.matchMedia(COMPACT_LANDING_QUERY).matches
+    );
     const [isStarting, setIsStarting] = useState(false);
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 2, // 1: easy, 2: medium, 3: hard
@@ -63,6 +69,19 @@ export default function StartButton() {
         leaderboard_mode: false,
     });
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia(COMPACT_LANDING_QUERY);
+        const handleChange = (event: MediaQueryListEvent) => {
+            setShowLeaderboardTab(event.matches);
+            if (!event.matches) {
+                setActivePage((currentPage) => currentPage === "leaderboard" ? "settings" : currentPage);
+            }
+        };
+
+        mediaQuery.addEventListener("change", handleChange);
+        return () => mediaQuery.removeEventListener("change", handleChange);
+    }, []);
 
     function handleDifficultyChange(nextDifficulty: string) {
         const normalized = (nextDifficulty as DifficultyLabel) || "Easy";
@@ -191,6 +210,19 @@ export default function StartButton() {
                 >
                     Credits
                 </button>
+                {showLeaderboardTab && (
+                    <button
+                        className={`landing-tab${activePage === "leaderboard" ? " is-active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={activePage === "leaderboard"}
+                        aria-controls="landing-panel"
+                        id="landing-tab-leaderboard"
+                        onClick={() => setActivePage("leaderboard")}
+                    >
+                        Leaderboard
+                    </button>
+                )}
             </div>
 
             {activePage === "settings" ? (
@@ -249,6 +281,8 @@ export default function StartButton() {
                         <span aria-hidden="true">→</span>
                     </button>
                 </div>
+            ) : activePage === "leaderboard" ? (
+                <LandingLeaderboardPanel embedded />
             ) : (
                 <div
                     className="landing-placeholder"

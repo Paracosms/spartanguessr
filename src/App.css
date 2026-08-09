@@ -232,6 +232,15 @@ summary:focus-visible {
 	font-weight: 900;
 }
 
+.landing-leaderboard-tab-panel {
+	display: flex;
+	width: 100%;
+	height: var(--landing-card-body-height);
+	min-height: 0;
+	flex-direction: column;
+	overflow: hidden;
+}
+
 .landing-leaderboard-scroll {
 	min-height: 0;
 	flex: 1;
@@ -1484,6 +1493,22 @@ summary:focus-visible {
 }
 
 @media (orientation: portrait) {
+	.landing-desktop-layout {
+		display: block;
+		width: min(100%, 600px);
+	}
+
+	.landing-side-panel {
+		display: none;
+	}
+
+	.landing-card-shell {
+		width: min(100%, 600px);
+		max-width: none;
+	}
+}
+
+@media (pointer: coarse) {
 	.landing-desktop-layout {
 		display: block;
 		width: min(100%, 600px);
