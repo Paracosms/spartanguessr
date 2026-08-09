@@ -221,7 +221,7 @@ export default function Game() {
                     <img
                         className="game-location-image"
                         src={roundImageUrl}
-                        alt="SJSU location to identify"
+                        alt=""
                         draggable={false}
                     />
                 </>

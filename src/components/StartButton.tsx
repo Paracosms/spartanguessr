@@ -17,7 +17,7 @@ type GameFormData = {
     leaderboard_mode: boolean;
 };
 
-type LandingPage = "settings" | "credits" | "leaderboard";
+type LandingPage = "settings" | "credits";
 
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
@@ -190,17 +190,6 @@ export default function StartButton() {
                     onClick={() => setActivePage("credits")}
                 >
                     Credits
-                </button>
-                <button
-                    className={`landing-tab${activePage === "leaderboard" ? " is-active" : ""}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={activePage === "leaderboard"}
-                    aria-controls="landing-panel"
-                    id="landing-tab-leaderboard"
-                    onClick={() => setActivePage("leaderboard")}
-                >
-                    Leaderboard
                 </button>
             </div>
 

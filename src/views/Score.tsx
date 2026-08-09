@@ -46,6 +46,8 @@ export default function Score() {
 	const actualPos = routeState?.actual_pos;
 	const imageUrl = routeState?.image_url;
 	const gameState = routeState?.gameState;
+	const difficulty = gameState?.difficulty ?? "medium";
+	const leaderboardMode = gameState?.leaderboardMode ?? false;
 	const isGameComplete = routeState?.is_game_complete === true;
 	const resultsState = routeState?.resultsState;
 	const nextRoundNumber = routeState?.next_round_number;
@@ -102,6 +104,11 @@ export default function Score() {
 			<header className="score-brand">
 				<img className="screen-brand-logo" src={Logo} alt="SpartanGuessr" />
 			</header>
+			<div className="game-mode-chip score-mode-chip">
+				<span>{leaderboardMode ? "Ranked" : "Classic"}</span>
+				<i aria-hidden="true">|</i>
+				<strong>{difficulty}</strong>
+			</div>
 
 			<section className="score-layout">
 				<div className="score-map-panel" style={{width: `${minimapWidthPx}px`}}>

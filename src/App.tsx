@@ -8,6 +8,7 @@ import Score from "./views/Score.tsx";
 import Results from "./views/Results.tsx";
 import {Routes, Route} from "react-router-dom";
 import { preloadGameAssets } from "./utils/preloadGameAssets.tsx";
+import { LandingLeaderboardPanel, LandingMapPanel } from "./components/LandingSidePanels.tsx";
 
 function LandingPage() {
     useEffect(() => {
@@ -20,7 +21,11 @@ function LandingPage() {
                 <div className="landing-content">
                     <img className="landing-logo" src={Logo} alt="SpartanGuessr" />
                     <p className="landing-subtitle">How well do you know SJSU?</p>
-                    <StartButton />
+                    <div className="landing-desktop-layout">
+                        <LandingMapPanel />
+                        <StartButton />
+                        <LandingLeaderboardPanel />
+                    </div>
                 </div>
             </section>
 

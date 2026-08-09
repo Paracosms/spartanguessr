@@ -10,7 +10,6 @@ import {
     submitLeaderboardEntry,
 } from "../utils/api.tsx";
 import type { LeaderboardEntry } from "../utils/api.tsx";
-const BLUE = "#1176B9";
 const GOLD = "#FFC108";
 
 const RANK_COLORS: Record<number, string> = { 1: GOLD, 2: "#C0C0C0", 3: "#CD7F32" };
@@ -134,7 +133,7 @@ export default function Results() {
                 <div className="results-hero">
                     <div className="final-score">
                         <span>Your score</span>
-                        <strong style={{WebkitTextStrokeColor: BLUE}}>{totalScore.toLocaleString()}</strong>
+                        <strong>{totalScore.toLocaleString()}</strong>
                         <small>points</small>
                     </div>
 
