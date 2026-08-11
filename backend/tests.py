@@ -454,6 +454,7 @@ class TestRandomImage:
         data = res.get_json()
 
         assert res.status_code == 200
+        assert data["image_id"] == "00000000000000000000000000000006"
         assert data["image_url"] == "https://images.example.com/00000000000000000000000000000006.jpg"
 
     def test_new_round_stores_internal_id_and_returns_direct_cdn_url(self, client, app):
@@ -467,8 +468,22 @@ class TestRandomImage:
         assert response.status_code == 200
         assert session.current_image_id in flask_app.image_by_id
         assert saved == [session]
+        assert data["image_id"] == session.current_image_id
         assert data["image_url"].startswith("https://images.example.com/")
         assert "(" not in data["image_url"]
+
+
+class TestImageCounts:
+    def test_returns_only_category_and_total_counts(self, client):
+        response = client.get("/image-counts")
+
+        assert response.status_code == 200
+        assert response.get_json() == {
+            "easy": 2,
+            "medium": 2,
+            "hard": 2,
+            "total": 6,
+        }
 
 
 class TestCatalogValidation:

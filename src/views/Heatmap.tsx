@@ -43,11 +43,6 @@ export default function Heatmap() {
 
     return (
         <main className="heatmap-page">
-            <header className="heatmap-header">
-                <p className="eyebrow">Behind the game</p>
-                <h1>Campus coverage</h1>
-                <p>Every possible SpartanGuessr drop, mapped.</p>
-            </header>
 
             <div className="heatmap-map">
                 <Minimap

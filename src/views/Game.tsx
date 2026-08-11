@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 import { ApiError, getRandomImage } from "../utils/api.tsx";
 import { loadRoundImage } from "../utils/preloadGameAssets.tsx";
+import { addPlaytime, recordImageSeen } from "../utils/stats.ts";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -17,6 +18,7 @@ const GAME_MINIMAP_EXPANDED_SCALE = 1.2;
 const MOBILE_PORTRAIT_EXPANDED_HEIGHT_VH = 0.5;
 const MOBILE_VIEWPORT_GUTTER_PX = 16;
 const MOBILE_CONTROLS_RESERVED_HEIGHT_PX = 120;
+const PLAYTIME_CHECKPOINT_MS = 15_000;
 
 type ViewportState = {
     width: number;
@@ -41,6 +43,8 @@ export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
     const [roundNumber, setRoundNumber] = useState(1);
     const [roundImageUrl, setRoundImageUrl] = useState<string | null>(null);
+    const [roundImageId, setRoundImageId] = useState<string | null>(null);
+    const [roundDifficulty, setRoundDifficulty] = useState<ApiDifficulty | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
@@ -146,6 +150,8 @@ export default function Game() {
             }
 
             setRoundImageUrl(roundImage.image_url);
+            setRoundImageId(roundImage.image_id);
+            setRoundDifficulty(roundImage.difficulty);
             setRoundNumber(roundImage.round_number);
             setTimeRemaining(roundTimerSeconds);
         } catch (err) {
@@ -171,6 +177,50 @@ export default function Game() {
             window.clearTimeout(timeoutId);
         };
     }, [loadRandomImage, navigate, sessionId]);
+
+    useEffect(() => {
+        let activeSince = document.visibilityState === "visible" ? performance.now() : null;
+
+        function flushPlaytime() {
+            if (activeSince == null) return;
+            addPlaytime(performance.now() - activeSince);
+            activeSince = null;
+        }
+
+        function checkpointPlaytime() {
+            if (activeSince == null) return;
+            const now = performance.now();
+            addPlaytime(now - activeSince);
+            activeSince = now;
+        }
+
+        function handleVisibilityChange() {
+            if (document.visibilityState === "visible") {
+                activeSince ??= performance.now();
+            } else {
+                flushPlaytime();
+            }
+        }
+
+        function handlePageShow() {
+            if (document.visibilityState === "visible") {
+                activeSince ??= performance.now();
+            }
+        }
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", flushPlaytime);
+        window.addEventListener("pageshow", handlePageShow);
+        const checkpointId = window.setInterval(checkpointPlaytime, PLAYTIME_CHECKPOINT_MS);
+
+        return () => {
+            flushPlaytime();
+            window.clearInterval(checkpointId);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("pagehide", flushPlaytime);
+            window.removeEventListener("pageshow", handlePageShow);
+        };
+    }, []);
 
     useEffect(() => {
         if (roundTimerSeconds == null || !roundImageUrl) {
@@ -223,6 +273,11 @@ export default function Game() {
                         src={roundImageUrl}
                         alt=""
                         draggable={false}
+                        onLoad={() => {
+                            if (roundImageId && roundDifficulty) {
+                                recordImageSeen(roundImageId, roundDifficulty);
+                            }
+                        }}
                     />
                 </>
             ) : (

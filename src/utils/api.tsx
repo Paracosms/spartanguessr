@@ -32,6 +32,7 @@ export type RandomImageResponse =
     | {
         completed?: false;
         difficulty: "easy" | "medium" | "hard";
+        image_id: string;
         location?: string;
         image_url: string;
         round_number: number;
@@ -66,6 +67,13 @@ export type LeaderboardEntry = {
     name: string;
     score: number;
     rank: number;
+};
+
+export type ImageCountsResponse = {
+    easy: number;
+    medium: number;
+    hard: number;
+    total: number;
 };
 
 export type SessionResultsResponse = {
@@ -180,6 +188,10 @@ export function getLeaderboardQualification(score: number, signal?: AbortSignal)
 
 export function getLeaderboard(signal?: AbortSignal) {
     return apiRequest<LeaderboardEntry[]>("/leaderboard", { signal });
+}
+
+export function getImageCounts(signal?: AbortSignal) {
+    return apiRequest<ImageCountsResponse>("/image-counts", { signal });
 }
 
 export function getSessionResults(sessionId: string, signal?: AbortSignal) {

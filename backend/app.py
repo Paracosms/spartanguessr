@@ -230,6 +230,16 @@ def build_round_image(session):
 def health():
     return jsonify({"status": "ok"}), 200
 
+
+@app.route("/image-counts")
+def image_counts():
+    counts = {difficulty: 0 for difficulty in ("easy", "medium", "hard")}
+    for image in image_by_id.values():
+        counts[image["difficulty"]] += 1
+
+    return jsonify({**counts, "total": sum(counts.values())}), 200
+
+
 #GET /random-image
 # Get the active round's direct CDN image URL.
 @app.route("/random-image")
@@ -257,6 +267,7 @@ def random_image():
         if session.current_image_id:
             return jsonify({
                 "difficulty": get_round_difficulty(session.difficulty, session.max_rounds, session.current_round),
+                "image_id": session.current_image_id,
                 "round_number": session.current_round,
                 "image_url": build_image_url(session.current_image_id),
             }), 200
@@ -270,6 +281,7 @@ def random_image():
 
         return jsonify({
             "difficulty": round_image["difficulty"],
+            "image_id": round_image["image_id"],
             "location": round_image["location"],
             "image_url": build_image_url(round_image["image_id"]),
             "round_number": session.current_round,

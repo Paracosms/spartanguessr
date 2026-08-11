@@ -5,6 +5,8 @@ import SettingsMenu from "./SettingsMenu.tsx";
 import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
 import { ApiError, createSession } from "../utils/api.tsx";
 import type { ApiDifficulty, GameRouteState } from "../utils/types";
+import { recordGameStarted } from "../utils/stats.ts";
+import StatsPanel from "./StatsPanel.tsx";
 
 type DifficultyLabel = "Easy" | "Medium" | "Hard";
 
@@ -166,6 +168,7 @@ export default function StartButton() {
                 ...(!effectiveSettings.leaderboard_mode && { seed: normalizedSeed }),
                 leaderboard_mode: effectiveSettings.leaderboard_mode,
             });
+            recordGameStarted(result.session_id);
 
             const gameRouteState: NonNullable<GameRouteState> = {
                 sessionId: result.session_id,
@@ -202,19 +205,17 @@ export default function StartButton() {
                 >
                     Play
                 </button>
-                {!showLeaderboardTab && (
-                    <button
-                        className={`landing-tab${activePage === "stats" ? " is-active" : ""}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={activePage === "stats"}
-                        aria-controls="landing-panel"
-                        id="landing-tab-stats"
-                        onClick={() => setActivePage("stats")}
-                    >
-                        Stats
-                    </button>
-                )}
+                <button
+                    className={`landing-tab${activePage === "stats" ? " is-active" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activePage === "stats"}
+                    aria-controls="landing-panel"
+                    id="landing-tab-stats"
+                    onClick={() => setActivePage("stats")}
+                >
+                    Stats
+                </button>
                 {showLeaderboardTab && (
                     <button
                         className={`landing-tab${activePage === "leaderboard" ? " is-active" : ""}`}
@@ -297,16 +298,37 @@ export default function StartButton() {
                         <span aria-hidden="true">→</span>
                     </button>
                 </div>
+            ) : activePage === "stats" ? (
+                <StatsPanel />
             ) : activePage === "leaderboard" ? (
                 <LandingLeaderboardPanel embedded />
             ) : (
-                <div
-                    className="landing-placeholder"
+                <section
+                    className="about-panel"
                     id="landing-panel"
                     role="tabpanel"
                     aria-labelledby={`landing-tab-${activePage}`}
-                    data-page={activePage}
-                />
+                >
+                    <dl>
+                        <div className="about-row">
+                            <dt>Creator/maintainer</dt>
+                            <dd>___</dd>
+                        </div>
+                        <div className="about-row">
+                            <dt>Logo design</dt>
+                            <dd>___</dd>
+                        </div>
+                        <div className="about-row">
+                            <dt>Initial team</dt>
+                            <dd>___</dd>
+                        </div>
+                        <div className="about-row">
+                            <dt>Original idea by</dt>
+                            <dd>___</dd>
+                        </div>
+                    </dl>
+                    <p>If you would like to submit images to be included in game, please email me at ___</p>
+                </section>
             )}
         </div>
     );

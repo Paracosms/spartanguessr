@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { GameRouteState, Point } from "../utils/types";
 import { ApiError, submitGuess } from "../utils/api.tsx";
 import { preloadNextRoundImage } from "../utils/preloadGameAssets.tsx";
+import { recordRoundResult } from "../utils/stats.ts";
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -56,6 +57,17 @@ export default function GuessButton({
             const result = await submitGuess(guess_packet);
 
             const gameComplete = result.game_complete === true || round_number >= max_rounds;
+            recordRoundResult({
+                sessionId: session_id,
+                roundNumber: round_number,
+                score: result.score,
+                distance: result.distance_meters,
+                guessX: coordinatesToSubmit.x,
+                guessY: coordinatesToSubmit.y,
+                ranked: gameState?.leaderboardMode ?? false,
+                gameComplete,
+                totalScore: result.total_score,
+            });
 
             if (!gameComplete && session_id && result.next_round_number != null) {
                 void preloadNextRoundImage(session_id, result.next_round_number);
