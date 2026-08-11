@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { GameRouteState, Point } from "../utils/types";
 import { ApiError, submitGuess } from "../utils/api.tsx";
 import { preloadNextRoundImage } from "../utils/preloadGameAssets.tsx";
+import { recordRoundResult } from "../utils/stats.ts";
 
 type GuessButtonProps = {
     session_id: string | null;
@@ -56,6 +57,17 @@ export default function GuessButton({
             const result = await submitGuess(guess_packet);
 
             const gameComplete = result.game_complete === true || round_number >= max_rounds;
+            recordRoundResult({
+                sessionId: session_id,
+                roundNumber: round_number,
+                score: result.score,
+                distance: result.distance_meters,
+                guessX: coordinatesToSubmit.x,
+                guessY: coordinatesToSubmit.y,
+                ranked: gameState?.leaderboardMode ?? false,
+                gameComplete,
+                totalScore: result.total_score,
+            });
 
             if (!gameComplete && session_id && result.next_round_number != null) {
                 void preloadNextRoundImage(session_id, result.next_round_number);
@@ -86,7 +98,6 @@ export default function GuessButton({
                 ? err.message
                 : "Unable to submit your guess. Please try again.";
             alert(`Error: ${message}`);
-        } finally {
             setIsSubmitting(false);
         }
     }, [coordinates, gameState, hasSessionData, image_url, isSubmitting, max_rounds, navigate, round_number, session_id]);
@@ -98,12 +109,12 @@ export default function GuessButton({
 
         lastAutoSubmitSignal.current = autoSubmitSignal;
         const timeoutCoordinates = coordinates ?? { x: 99999, y: 99999 };
-        void sendToServer(timeoutCoordinates);
+        void Promise.resolve().then(() => sendToServer(timeoutCoordinates));
     }, [autoSubmitSignal, coordinates, sendToServer]);
 
     return (
-        <button className="start-game-button" type="button" onClick={() => void sendToServer()} disabled={!canManuallySubmit || isSubmitting}>
-            Guess
+        <button className="guess-button" type="button" onClick={() => void sendToServer()} disabled={!canManuallySubmit || isSubmitting}>
+            <span>{isSubmitting ? "Locking in…" : coordinates ? "Guess" : "Click minimap to guess location"}</span>
         </button>
     )
 }

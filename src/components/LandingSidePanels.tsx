@@ -1,0 +1,157 @@
+import { useEffect, useState, type CSSProperties } from "react";
+import Minimap from "./Minimap.tsx";
+import { getLeaderboard } from "../utils/api.tsx";
+import type { LeaderboardEntry, LeaderboardPeriod } from "../utils/api.tsx";
+import type { Point } from "../utils/types.tsx";
+import MouseLeftClick from "../assets/icons/MouseLeftClick.svg";
+import HandGrabbing from "../assets/icons/HandGrabbing.svg";
+import MouseScroll from "../assets/icons/MouseScroll.svg";
+import Trophy from "../assets/icons/Trophy.svg";
+import { getRankLabel, RANK_COLORS } from "../utils/leaderboard.ts";
+
+const LANDING_MINIMAP_REFERENCE_SIZE_VH = 40;
+const LANDING_MINIMAP_SIZE_VH = 46; // Size of title-screen minimap.
+const LANDING_MINIMAP_ZOOM_RATIO = LANDING_MINIMAP_SIZE_VH / LANDING_MINIMAP_REFERENCE_SIZE_VH;
+const LANDING_MINIMAP_INITIAL_SCALE = 0.35 * LANDING_MINIMAP_ZOOM_RATIO;
+const LANDING_MINIMAP_INITIAL_OFFSET = {
+    x: -114 * LANDING_MINIMAP_ZOOM_RATIO,
+    y: -92 * LANDING_MINIMAP_ZOOM_RATIO,
+};
+
+export function LandingMapPanel() {
+    const [pinPosition, setPinPosition] = useState<Point | null>(null);
+
+    return (
+        <aside className="landing-side-panel landing-map-panel">
+            <header>
+                <h2>Controls</h2>
+            </header>
+            <div
+                className="landing-minimap-stage"
+                style={{
+                    "--landing-minimap-height": `${LANDING_MINIMAP_SIZE_VH}vh`,
+                } as CSSProperties}
+            >
+                <Minimap
+                    pinPosition={pinPosition}
+                    onPinChange={setPinPosition}
+                    unlabeled={false}
+                    zoomRatio={LANDING_MINIMAP_ZOOM_RATIO}
+                    initialScale={LANDING_MINIMAP_INITIAL_SCALE}
+                    initialOffset={LANDING_MINIMAP_INITIAL_OFFSET}
+                />
+            </div>
+            <div className="landing-map-instruction" aria-label="Map controls">
+                <span>Flag: <img src={MouseLeftClick} alt="" /></span>
+                <span aria-hidden="true">|</span>
+                <span>Pan: <img src={HandGrabbing} alt="" /></span>
+                <span aria-hidden="true">|</span>
+                <span>Zoom: <img src={MouseScroll} alt="" /></span>
+            </div>
+        </aside>
+    );
+}
+
+type LandingLeaderboardPanelProps = {
+    embedded?: boolean;
+};
+
+export function LandingLeaderboardPanel({ embedded = false }: LandingLeaderboardPanelProps) {
+    const [activePeriod, setActivePeriod] = useState<LeaderboardPeriod>("daily");
+    const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const panelIdPrefix = embedded ? "landing-embedded-leaderboard" : "landing-side-leaderboard";
+
+    useEffect(() => {
+        let cancelled = false;
+
+        void getLeaderboard(activePeriod)
+            .then((data) => {
+                if (!cancelled) setLeaderboard(data);
+            })
+            .catch((err) => console.error("Failed to fetch leaderboard:", err))
+            .finally(() => {
+                if (!cancelled) setIsLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activePeriod]);
+
+    return (
+        <aside
+            className={`${embedded ? "landing-leaderboard-tab-panel" : "landing-side-panel"} landing-leaderboard-panel`}
+            {...(embedded && {
+                id: "landing-panel",
+                role: "tabpanel",
+                "aria-labelledby": "landing-tab-leaderboard",
+            })}
+        >
+            <header>
+                <h2>Leaderboard</h2>
+                <div className="leaderboard-period-tabs" role="tablist" aria-label="Leaderboard period">
+                    {(["daily", "weekly"] as const).map((period) => (
+                        <button
+                            key={period}
+                            type="button"
+                            role="tab"
+                            id={`${panelIdPrefix}-${period}-tab`}
+                            aria-controls={`${panelIdPrefix}-${period}-panel`}
+                            aria-selected={activePeriod === period}
+                            className={activePeriod === period ? "is-active" : ""}
+                            onClick={() => {
+                                if (period !== activePeriod) {
+                                    setIsLoading(true);
+                                    setLeaderboard([]);
+                                    setActivePeriod(period);
+                                }
+                            }}
+                        >
+                            {period === "daily" ? "Daily" : "Weekly"}
+                        </button>
+                    ))}
+                </div>
+            </header>
+            <div
+                id={`${panelIdPrefix}-${activePeriod}-panel`}
+                className="landing-leaderboard-scroll"
+                role="tabpanel"
+                aria-labelledby={`${panelIdPrefix}-${activePeriod}-tab`}
+            >
+                {isLoading ? (
+                    <p className="empty-leaderboard">Loading leaderboard…</p>
+                ) : leaderboard.length === 0 ? (
+                    <div className="empty-leaderboard">
+                        <img className="empty-leaderboard-icon" src={Trophy} alt="" />
+                        <p className="empty-leaderboard-copy">
+                            <strong>No scores yet.</strong>
+                            <span>Be the first Spartan on the board.</span>
+                        </p>
+                    </div>
+                ) : (
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Spartan</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {leaderboard.map((entry, index) => (
+                                <tr key={index}>
+                                    <td style={{color: RANK_COLORS[entry.rank] ?? "#ffffff"}}>
+                                        <span>{getRankLabel(entry.rank)}</span>
+                                    </td>
+                                    <td>{entry.name.toUpperCase()}</td>
+                                    <td>{entry.score.toLocaleString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </aside>
+    );
+}

@@ -1,13 +1,16 @@
-import mapLabeled from "../assets/MapLabeled.jpg";
-import mapUnlabeled from "../assets/MapUnlabeled.jpg";
-import pin from "../assets/Pin.png";
+import mapLabeled from "../assets/maps/MapLabeled.svg";
+import mapUnlabeled from "../assets/maps/MapUnlabeled.svg";
+import pin from "../assets/maps/Pin.png";
 import { getRandomImage } from "./api.tsx";
+import type { ApiDifficulty } from "./types.tsx";
 
 const GAME_ASSETS = [mapLabeled, mapUnlabeled, pin];
 
 let preloadPromise: Promise<void> | null = null;
 
 type CachedRoundImage = {
+    difficulty: ApiDifficulty;
+    imageId: string;
     imageUrl: string;
     roundNumber: number;
 };
@@ -75,6 +78,8 @@ function requestRoundImage(sessionId: string, expectedRound: number): Promise<Ca
         }
 
         const roundImage = {
+            difficulty: randomImage.difficulty,
+            imageId: randomImage.image_id,
             imageUrl: randomImage.image_url,
             roundNumber: randomImage.round_number,
         };
@@ -122,6 +127,8 @@ export async function loadRoundImage(sessionId: string, expectedRound: number) {
     const cached = takeCachedRoundImage(sessionId, expectedRound);
     if (cached) {
         return {
+            difficulty: cached.difficulty,
+            image_id: cached.imageId,
             image_url: cached.imageUrl,
             round_number: cached.roundNumber,
             completed: false as const,
@@ -132,6 +139,8 @@ export async function loadRoundImage(sessionId: string, expectedRound: number) {
     takeCachedRoundImage(sessionId, expectedRound);
 
     return {
+        difficulty: roundImage.difficulty,
+        image_id: roundImage.imageId,
         image_url: roundImage.imageUrl,
         round_number: roundImage.roundNumber,
         completed: false as const,

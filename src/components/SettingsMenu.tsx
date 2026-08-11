@@ -1,4 +1,3 @@
-import Dropdown from "react-bootstrap/Dropdown";
 import Form from "react-bootstrap/Form";
 
 type SettingsMenuProps = {
@@ -15,7 +14,6 @@ type SettingsMenuProps = {
     outsideOnly: boolean;
     onOutsideOnlyChange: (value: boolean) => void;
     leaderboardMode: boolean;
-    onLeaderboardModeChange: (value: boolean) => void;
 };
 
 const TIMER_DISPLAY: Record<string, string> = {
@@ -24,6 +22,10 @@ const TIMER_DISPLAY: Record<string, string> = {
     "60": "60s",
     "120": "120s",
 };
+
+const DIFFICULTIES = ["Easy", "Medium", "Hard"];
+const ROUND_COUNTS = [3, 5, 10];
+const TIMER_LENGTHS = ["none", "30", "60", "120"];
 
 export default function SettingsMenu({
     difficulty,
@@ -39,92 +41,99 @@ export default function SettingsMenu({
     outsideOnly,
     onOutsideOnlyChange,
     leaderboardMode,
-    onLeaderboardModeChange,
 }: SettingsMenuProps) {
     return (
         <>
-            {/* Dropdowns & inputs */}
-            <Dropdown onSelect={(eventKey) => eventKey && onDifficultyChange(eventKey)}>
-                <Dropdown.Toggle className="difficulty-button" id="difficulty-dropdown" disabled={leaderboardMode}>
-                    Difficulty: {difficulty}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                    <Dropdown.Item eventKey="Easy">Easy</Dropdown.Item>
-                    <Dropdown.Item eventKey="Medium">Medium</Dropdown.Item>
-                    <Dropdown.Item eventKey="Hard">Hard</Dropdown.Item>
-                </Dropdown.Menu>
-            </Dropdown>
+            <div className="settings-grid">
+                <fieldset className="setting-field">
+                    <legend>Difficulty</legend>
+                    <div className="setting-options">
+                        {DIFFICULTIES.map((option) => (
+                            <button
+                                className={difficulty === option ? "is-selected" : ""}
+                                type="button"
+                                aria-pressed={difficulty === option}
+                                disabled={leaderboardMode}
+                                onClick={() => onDifficultyChange(option)}
+                                key={option}
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+                </fieldset>
 
-            <Dropdown onSelect={(eventKey) => eventKey && onTimerLengthChange(eventKey)}>
-                <Dropdown.Toggle className="difficulty-button" id="timer-dropdown" disabled={leaderboardMode}>
-                    Timer: {TIMER_DISPLAY[timerLength] ?? timerLength}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                    <Dropdown.Item eventKey="none">None</Dropdown.Item>
-                    <Dropdown.Item eventKey="30">30s</Dropdown.Item>
-                    <Dropdown.Item eventKey="60">60s</Dropdown.Item>
-                    <Dropdown.Item eventKey="120">120s</Dropdown.Item>
-                </Dropdown.Menu>
-            </Dropdown>
+                <fieldset className="setting-field">
+                    <legend>Rounds</legend>
+                    <div className="setting-options">
+                        {ROUND_COUNTS.map((option) => (
+                            <button
+                                className={roundCount === option ? "is-selected" : ""}
+                                type="button"
+                                aria-pressed={roundCount === option}
+                                disabled={leaderboardMode}
+                                onClick={() => onRoundCountChange(option)}
+                                key={option}
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+                </fieldset>
 
-            <Dropdown
-                onSelect={(eventKey) => {
-                    const nextRoundCount = Number(eventKey);
-                    if (Number.isInteger(nextRoundCount) && nextRoundCount > 0) {
-                        onRoundCountChange(nextRoundCount);
-                    }
-                }}
-            >
-                <Dropdown.Toggle className="difficulty-button" id="rounds-dropdown" disabled={leaderboardMode}>
-                    Rounds: {roundCount}
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
-                    <Dropdown.Item eventKey="3">3</Dropdown.Item>
-                    <Dropdown.Item eventKey="5">5</Dropdown.Item>
-                    <Dropdown.Item eventKey="10">10</Dropdown.Item>
-                </Dropdown.Menu>
-            </Dropdown>
+                <fieldset className="setting-field setting-field-wide">
+                    <legend>Time limit</legend>
+                    <div className="setting-options setting-options-timer">
+                        {TIMER_LENGTHS.map((option) => (
+                            <button
+                                className={timerLength === option ? "is-selected" : ""}
+                                type="button"
+                                aria-pressed={timerLength === option}
+                                disabled={leaderboardMode}
+                                onClick={() => onTimerLengthChange(option)}
+                                key={option}
+                            >
+                                {TIMER_DISPLAY[option]}
+                            </button>
+                        ))}
+                    </div>
+                </fieldset>
 
-            <input
-                className="setting-input"
-                type="text"
-                placeholder="Seed (optional)"
-                value={seed}
-                onChange={(e) => onSeedChange(e.target.value)}
-                disabled={leaderboardMode}
-            />
-
-            {/* Toggles */}
-            <div className="setting-toggle">
-                <span>Unlabeled Map</span>
-                <Form.Check
-                    type="switch"
-                    id="unlabeled-map-switch"
-                    checked={unlabeledMap}
-                    onChange={(e) => onUnlabeledMapChange(e.target.checked)}
-                    disabled={leaderboardMode}
-                />
+                <label className="setting-field setting-field-wide">
+                    <span>Seed</span>
+                    <input
+                        className="setting-input"
+                        type="text"
+                        placeholder="Optional"
+                        value={seed}
+                        onChange={(e) => onSeedChange(e.target.value)}
+                        disabled={leaderboardMode}
+                    />
+                </label>
             </div>
 
-            <div className="setting-toggle">
-                <span>Outside Only</span>
-                <Form.Check
-                    type="switch"
-                    id="outside-only-switch"
-                    checked={outsideOnly}
-                    onChange={(e) => onOutsideOnlyChange(e.target.checked)}
-                    disabled={leaderboardMode}
-                />
-            </div>
+            <div className="settings-toggles">
+                <label className={`setting-toggle${leaderboardMode ? " is-disabled" : ""}`} htmlFor="unlabeled-map-switch">
+                    <span><strong>Hide map labels</strong><small>Removes labels from the map</small></span>
+                    <Form.Check
+                        type="switch"
+                        id="unlabeled-map-switch"
+                        checked={unlabeledMap}
+                        onChange={(e) => onUnlabeledMapChange(e.target.checked)}
+                        disabled={leaderboardMode}
+                    />
+                </label>
 
-            <div className="setting-toggle">
-                <span>Leaderboard Mode</span>
-                <Form.Check
-                    type="switch"
-                    id="leaderboard-mode-switch"
-                    checked={leaderboardMode}
-                    onChange={(e) => onLeaderboardModeChange(e.target.checked)}
-                />
+                <label className={`setting-toggle${leaderboardMode ? " is-disabled" : ""}`} htmlFor="outside-only-switch">
+                    <span><strong>Outdoor locations only</strong><small>Skip indoor locations</small></span>
+                    <Form.Check
+                        type="switch"
+                        id="outside-only-switch"
+                        checked={outsideOnly}
+                        onChange={(e) => onOutsideOnlyChange(e.target.checked)}
+                        disabled={leaderboardMode}
+                    />
+                </label>
             </div>
         </>
     );

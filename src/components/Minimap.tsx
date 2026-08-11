@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import mapLabeled from "../assets/MapLabeled.jpg";
-import mapUnlabeled from "../assets/MapUnlabeled.jpg";
-import pin from "../assets/Pin.png";
+import mapLabeled from "../assets/maps/MapLabeled.svg";
+import mapUnlabeled from "../assets/maps/MapUnlabeled.svg";
+import pin from "../assets/maps/Pin.png";
 import type { Point } from "../utils/types";
 type ViewState = { scale: number; offset: Point };
 type TouchPanState = {
@@ -22,6 +22,7 @@ type MinimapProps = {
     unlabeled: boolean;
     allowPinPlacement?: boolean;
     mapHeightPx?: number;
+    zoomRatio?: number;
     initialScale?: number;
     initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
     minZoomFloor?: number;
@@ -39,13 +40,13 @@ type MinimapProps = {
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
 const PIN_SIZE_PX = 30;
 const PIN_TIP_X_PERCENT = (203 / 388) * 100; // visible tip center in the source sprite
-const INITIAL_SCALE = 1; // prod = 1.0
+const INITIAL_SCALE = 1;
 const ZOOM_SPEED = 0.05;
 
 // Handles how far the image can be zoomed. Must be divisible by ZOOM_SPEED.
 const BASE_MIN_ZOOM = 0.20;
 const MAX_ZOOM = 2;
-const FIT_ZOOM_PADDING = 0.98;
+const FIT_ZOOM_PADDING = 1.0;
 const TOUCH_DRAG_THRESHOLD_PX = 8;
 const TOUCH_CLICK_SUPPRESSION_MS = 750;
 
@@ -60,6 +61,7 @@ export default function Minimap({
     unlabeled,
     allowPinPlacement = true,
     mapHeightPx,
+    zoomRatio = 1,
     initialScale = INITIAL_SCALE,
     initialOffset = INITIAL_MAP_POS,
     minZoomFloor,
@@ -75,12 +77,16 @@ export default function Minimap({
 }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
+    const scaledMinZoomFloor = (minZoomFloor ?? BASE_MIN_ZOOM) * zoomRatio;
+    const scaledMaxZoom = MAX_ZOOM * zoomRatio;
+    const scaledZoomSpeed = ZOOM_SPEED * zoomRatio;
     const [view, setView] = useState<ViewState>(() => ({
         scale: initialScale,
         offset: initialOffset,
     }));
-    const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
+    const [minZoom, setMinZoom] = useState(scaledMinZoomFloor);
     const [dragging, setDragging] = useState(false);
+    const [isInteracting, setIsInteracting] = useState(false);
     const { scale, offset } = view;
     const dragStartRef = useRef({x:0, y:0});
     const dragMouseStartRef = useRef({x:0, y:0});
@@ -94,10 +100,15 @@ export default function Minimap({
     const touchMovedRef = useRef(false);
     const touchHadMultiplePointersRef = useRef(false);
     const ignoreMouseClickUntilRef = useRef(0);
+    const wheelIdleTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         viewRef.current = view;
     }, [view]);
+
+    useEffect(() => () => {
+        if (wheelIdleTimerRef.current !== null) window.clearTimeout(wheelIdleTimerRef.current);
+    }, []);
 
     // Place pin
     function placePin(clientX: number, clientY: number) {
@@ -155,6 +166,7 @@ export default function Minimap({
 
         e.preventDefault();
         setDragging(true);
+        setIsInteracting(true);
         dragMovedRef.current = false;
         dragMouseStartRef.current = { x: e.clientX, y: e.clientY };
 
@@ -174,6 +186,13 @@ export default function Minimap({
     function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
         e.preventDefault();
 
+        setIsInteracting(true);
+        if (wheelIdleTimerRef.current !== null) window.clearTimeout(wheelIdleTimerRef.current);
+        wheelIdleTimerRef.current = window.setTimeout(() => {
+            setIsInteracting(false);
+            wheelIdleTimerRef.current = null;
+        }, 120);
+
         // Obtain the div
         const container = containerRef.current;
         if (!container) return;
@@ -181,8 +200,8 @@ export default function Minimap({
         const { x: mouseX, y: mouseY } = getLocalPoint(container, e.clientX, e.clientY);
 
         setView((prev) => {
-            const zoomFactor = e.deltaY > 0 ? -ZOOM_SPEED : ZOOM_SPEED;
-            const nextScale = clamp(round(prev.scale + zoomFactor, 4), minZoom, MAX_ZOOM);
+            const zoomFactor = e.deltaY > 0 ? -scaledZoomSpeed : scaledZoomSpeed;
+            const nextScale = clamp(round(prev.scale + zoomFactor, 4), minZoom, scaledMaxZoom);
 
             // Avoid useless updates
             if (nextScale === prev.scale) return prev;
@@ -242,6 +261,7 @@ export default function Minimap({
         if (e.pointerType !== "touch") return;
 
         e.preventDefault();
+        setIsInteracting(true);
         e.currentTarget.setPointerCapture(e.pointerId);
         const client = { x: e.clientX, y: e.clientY };
         activeTouchPointersRef.current.set(e.pointerId, client);
@@ -274,7 +294,7 @@ export default function Minimap({
             const nextScale = clamp(
                 pinch.startScale * (getDistance(first, second) / pinch.startDistance),
                 minZoom,
-                MAX_ZOOM
+                scaledMaxZoom
             );
             const nextView = {
                 scale: nextScale,
@@ -332,6 +352,7 @@ export default function Minimap({
         }
 
         if (activeTouchPointersRef.current.size === 0) {
+            setIsInteracting(false);
             touchPanRef.current = null;
             pinchRef.current = null;
             touchMovedRef.current = false;
@@ -350,22 +371,36 @@ export default function Minimap({
 
     // Listens for mouse input
     useEffect(() => {
-        // Runs every time the mouse moves
-        function handleMouseMove(e: MouseEvent) {
-            if (!dragging) return;
+        let pendingMousePosition: Point | null = null;
+        let panFrame: number | null = null;
 
+        function applyPendingMouseMove() {
+            panFrame = null;
+            if (!pendingMousePosition) return;
+
+            const client = pendingMousePosition;
+            pendingMousePosition = null;
             // Obtain the div
             const container = containerRef.current;
             if (!container) return;
 
             const width = container.clientWidth;
             const height = container.clientHeight;
-            const mouse = getLocalPoint(container, e.clientX, e.clientY);
+            const mouse = getLocalPoint(container, client.x, client.y);
 
             const nextOffset = {
                 x: mouse.x - dragStartRef.current.x,
                 y: mouse.y - dragStartRef.current.y,
             };
+
+            setView((prev) => ({
+                ...prev,
+                offset: clampOffset(nextOffset, prev.scale, width, height),
+            }));
+        }
+
+        function handleMouseMove(e: MouseEvent) {
+            if (!dragging) return;
 
             if (
                 !dragMovedRef.current &&
@@ -377,14 +412,17 @@ export default function Minimap({
                 dragMovedRef.current = true;
             }
 
-            setView((prev) => ({
-                ...prev,
-                offset: clampOffset(nextOffset, prev.scale, width, height),
-            }));
+            pendingMousePosition = { x: e.clientX, y: e.clientY };
+            if (panFrame === null) panFrame = requestAnimationFrame(applyPendingMouseMove);
         }
 
         function handleMouseUp() {
+            if (panFrame !== null) {
+                cancelAnimationFrame(panFrame);
+                applyPendingMouseMove();
+            }
             setDragging(false);
+            setIsInteracting(false);
         }
 
         // Enable functionality even when mouse leaves <div>
@@ -393,6 +431,7 @@ export default function Minimap({
 
         // Clean up functions to remove duplicates of event listeners
         return () => {
+            if (panFrame !== null) cancelAnimationFrame(panFrame);
             window.removeEventListener("mousemove", handleMouseMove);
             window.removeEventListener("mouseup", handleMouseUp);
         };
@@ -407,15 +446,13 @@ export default function Minimap({
             const width = container.clientWidth;
             const height = container.clientHeight;
             if (width <= 0 || height <= 0) return;
-            const nextMinZoom = minZoomFloor != null
-                ? Math.max(getFitMinZoom(width, height), minZoomFloor)
-                : getFitMinZoom(width, height);
+            const nextMinZoom = getFitMinZoom(width, height, scaledMinZoomFloor, scaledMaxZoom);
             setMinZoom(nextMinZoom);
 
             setView((prev) => {
                 const baseScale =
                     initializeScaleToMinZoom && !userAdjustedZoomRef.current ? nextMinZoom : prev.scale;
-                const nextScale = clamp(baseScale, nextMinZoom, MAX_ZOOM);
+                const nextScale = clamp(baseScale, nextMinZoom, scaledMaxZoom);
 
                 return {
                     scale: nextScale,
@@ -427,7 +464,7 @@ export default function Minimap({
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, [minZoomFloor, initializeScaleToMinZoom, mapHeightPx]);
+    }, [initializeScaleToMinZoom, mapHeightPx, scaledMaxZoom, scaledMinZoomFloor]);
 
     // Prevent trackpad pinch-to-zoom on the minimap
     useEffect(() => {
@@ -461,14 +498,15 @@ export default function Minimap({
         onPointerCancel={(e) => finishTouchPointer(e, false)}
         onWheel={handleWheel}
         onClick={allowPinPlacement ? handleClick : undefined}
-        className="rounded shadow border border-5 border-warning"
+        className="minimap-shell"
+        aria-label={allowPinPlacement ? "Campus map. Select your guess location." : "Campus map"}
         style={{
             height: mapHeightPx != null ? `${mapHeightPx}px` : "40vh",
             aspectRatio: `${ASPECT_RATIO}`,
             position: "relative",
             overflow: "hidden",
             userSelect: "none",
-            cursor: "crosshair",
+            cursor: allowPinPlacement ? "crosshair" : "grab",
             touchAction: "none",
         }}
     >
@@ -479,13 +517,13 @@ export default function Minimap({
                 height: `${MINIMAP_HEIGHT}px`,
                 transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
                 transformOrigin: "top left",
+                willChange: isInteracting ? "transform" : undefined,
                 pointerEvents: "none",
             }}
         >
             <img
-                className="minimap-img"
                 src={unlabeled ? mapUnlabeled : mapLabeled}
-                alt="Campus Minimap"
+                alt=""
                 draggable={false}
                 onDragStart={(e) => e.preventDefault()}
                 style={{
@@ -515,7 +553,7 @@ export default function Minimap({
             {pinPosition && (
                 <img
                     src={pin}
-                    alt="Selected location"
+                    alt=""
                     draggable={false}
                     style={{
                         position: "absolute",
@@ -575,9 +613,14 @@ function round(value: number, decimal_places: number): number {
     return Math.round(value * multiplier) / multiplier;
 }
 
-function getFitMinZoom(containerWidth: number, containerHeight: number): number {
+function getFitMinZoom(
+    containerWidth: number,
+    containerHeight: number,
+    minZoomFloor: number,
+    maxZoom: number,
+): number {
     const fitScale = Math.min(containerWidth / MINIMAP_WIDTH, containerHeight / MINIMAP_HEIGHT) * FIT_ZOOM_PADDING;
-    return round(clamp(fitScale, BASE_MIN_ZOOM, MAX_ZOOM), 3);
+    return round(clamp(fitScale, minZoomFloor, maxZoom), 3);
 }
 
 function getLocalPoint(container: HTMLDivElement, clientX: number, clientY: number): Point {

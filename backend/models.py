@@ -20,6 +20,7 @@ class GameSession:
         self.total_score = 0
         self.leaderboard_submitted = False
         self.created_at = datetime.now(UTC).isoformat()
+        self.completed_at = None
 
     def to_dict(self):
         # serialize to dict
@@ -35,6 +36,7 @@ class GameSession:
             "total_score": str(self.total_score),
             "leaderboard_submitted": "true" if self.leaderboard_submitted else "false",
             "created_at": self.created_at,
+            "completed_at": self.completed_at or "",
         }
 
     @staticmethod
@@ -55,6 +57,7 @@ class GameSession:
         session.total_score = int(data.get("total_score", 0))
         session.leaderboard_submitted = data.get("leaderboard_submitted", "false") == "true"
         session.created_at = data.get("created_at", datetime.now(UTC).isoformat())
+        session.completed_at = data.get("completed_at") or None
         return session
 
 

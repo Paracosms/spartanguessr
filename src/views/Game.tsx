@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
+import Logo from "../assets/SpartanguessrLogo.png";
+import Spear from "../assets/icons/WebIcon.png";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 import { ApiError, getRandomImage } from "../utils/api.tsx";
 import { loadRoundImage } from "../utils/preloadGameAssets.tsx";
+import { addPlaytime, recordImageSeen } from "../utils/stats.ts";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
 const GAME_MINIMAP_HEIGHT_VH = 0.60; // fraction of viewport height, scales up on larger monitors
 const GAME_MINIMAP_INITIAL_SCALE = 0.35; // starting zoom level for the minimap
@@ -15,6 +18,7 @@ const GAME_MINIMAP_EXPANDED_SCALE = 1.2;
 const MOBILE_PORTRAIT_EXPANDED_HEIGHT_VH = 0.5;
 const MOBILE_VIEWPORT_GUTTER_PX = 16;
 const MOBILE_CONTROLS_RESERVED_HEIGHT_PX = 120;
+const PLAYTIME_CHECKPOINT_MS = 15_000;
 
 type ViewportState = {
     width: number;
@@ -39,6 +43,8 @@ export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
     const [roundNumber, setRoundNumber] = useState(1);
     const [roundImageUrl, setRoundImageUrl] = useState<string | null>(null);
+    const [roundImageId, setRoundImageId] = useState<string | null>(null);
+    const [roundDifficulty, setRoundDifficulty] = useState<ApiDifficulty | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
@@ -144,6 +150,8 @@ export default function Game() {
             }
 
             setRoundImageUrl(roundImage.image_url);
+            setRoundImageId(roundImage.image_id);
+            setRoundDifficulty(roundImage.difficulty);
             setRoundNumber(roundImage.round_number);
             setTimeRemaining(roundTimerSeconds);
         } catch (err) {
@@ -169,6 +177,50 @@ export default function Game() {
             window.clearTimeout(timeoutId);
         };
     }, [loadRandomImage, navigate, sessionId]);
+
+    useEffect(() => {
+        let activeSince = document.visibilityState === "visible" ? performance.now() : null;
+
+        function flushPlaytime() {
+            if (activeSince == null) return;
+            addPlaytime(performance.now() - activeSince);
+            activeSince = null;
+        }
+
+        function checkpointPlaytime() {
+            if (activeSince == null) return;
+            const now = performance.now();
+            addPlaytime(now - activeSince);
+            activeSince = now;
+        }
+
+        function handleVisibilityChange() {
+            if (document.visibilityState === "visible") {
+                activeSince ??= performance.now();
+            } else {
+                flushPlaytime();
+            }
+        }
+
+        function handlePageShow() {
+            if (document.visibilityState === "visible") {
+                activeSince ??= performance.now();
+            }
+        }
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", flushPlaytime);
+        window.addEventListener("pageshow", handlePageShow);
+        const checkpointId = window.setInterval(checkpointPlaytime, PLAYTIME_CHECKPOINT_MS);
+
+        return () => {
+            flushPlaytime();
+            window.clearInterval(checkpointId);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("pagehide", flushPlaytime);
+            window.removeEventListener("pageshow", handlePageShow);
+        };
+    }, []);
 
     useEffect(() => {
         if (roundTimerSeconds == null || !roundImageUrl) {
@@ -206,72 +258,99 @@ export default function Game() {
     }, []);
 
     return (
-        <>
-
-            {roundImageUrl && (    
-                <img src={roundImageUrl}
-                    draggable={false}
-                    style={{
-                        width: "100vw",
-                        height: "100vh",
-                        objectFit: "contain",
-                        background: "#000000", // "#1176B9" // blue background to match sjsu logo?
-                        // adds outline around the browser window
-                        // border: "6px solid #FFC108",
-                        // boxSizing: "border-box",
-                    }}
-                />
+        <main className="game-page">
+            {roundImageUrl ? (
+                <>
+                    <div
+                        className="game-location-backdrop"
+                        aria-hidden="true"
+                        style={{
+                            backgroundImage: `url(${roundImageUrl})`,
+                        }}
+                    />
+                    <img
+                        className="game-location-image"
+                        src={roundImageUrl}
+                        alt=""
+                        draggable={false}
+                        onLoad={() => {
+                            if (roundImageId && roundDifficulty) {
+                                recordImageSeen(roundImageId, roundDifficulty);
+                            }
+                        }}
+                    />
+                </>
+            ) : (
+                <div className="game-loading" role="status">
+                    <img className="loading-spear" src={Spear} alt="" />
+                    <p>Finding your next location…</p>
+                </div>
             )}
 
-            <div className="game-status-bar">
-                <p className="game-status game-timer text-black text-center bg-white rounded shadow border border-5 border-warning px-3">
-                    Timer: {formatTimer(timeRemaining)} 
-                </p>
-                <p className="game-status game-round text-black text-center bg-white rounded shadow border border-5 border-warning px-3">
-                    Current Round: {roundNumber}/{maxRounds}
-                </p>
-            </div>
+            <div className="game-vignette" aria-hidden="true" />
 
-            <div className="position-fixed d-flex flex-column bottom-0 end-0 p-3 gap-3" style={{alignItems: "flex-end"}}>
-                    {/* Desktop expands on hover; touch devices expand on tap. */}
-                    <div
-                        onPointerEnter={(e) => {
-                            if (e.pointerType === "mouse") setMinimapHovered(true);
-                        }}
-                        onPointerLeave={(e) => {
-                            if (e.pointerType === "mouse") setMinimapHovered(false);
-                        }}
-                        style={{
-                            transform: `scale(${minimapWrapperScale})`,
-                            transformOrigin: "bottom right",
-                            transition: "transform 0.2s ease",
-                        }}
-                    >
-                        <Minimap
-                            pinPosition={pinPosition}
-                            unlabeled={unlabeledMap}
-                            onPinChange={setPinPosition}
-                            mapHeightPx={displayedMinimapHeightPx}
-                            initialScale={GAME_MINIMAP_INITIAL_SCALE}
-                            initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
-                            onTouchTap={minimapTouchExpanded ? undefined : () => setMinimapTouchExpanded(true)}
-                            onTouchEdgeTap={minimapTouchExpanded ? () => setMinimapTouchExpanded(false) : undefined}
-                        />
-                    </div>
+            <header className="game-hud">
+                <div className="game-brand-chip" aria-label="SpartanGuessr">
+                    <img className="game-brand-logo" src={Logo} alt="SpartanGuessr" />
+                </div>
 
-                    {/* match guess button to minimap size */}
-                    <div style={{width: `${guessButtonWidthPx}px`}}>
-                        <GuessButton
-                            session_id={sessionId}
-                            image_url={roundImageUrl}
-                            round_number={roundNumber}
-                            max_rounds={maxRounds}
-                            coordinates={pinPosition}
-                            gameState={gameNavigationState}
-                            autoSubmitSignal={autoSubmitSignal}
-                        />
-                    </div>
-            </div>
-        </>
+                <div className="game-status-bar">
+                    <p className="game-status game-round">
+                        <span>Round</span>
+                        <strong>{roundNumber}<i>/</i>{maxRounds}</strong>
+                    </p>
+                    <span className="status-divider" aria-hidden="true" />
+                    <p className={`game-status game-timer${timeRemaining != null && timeRemaining <= 10 ? " is-urgent" : ""}`}>
+                        <span>Time</span>
+                        <strong>{formatTimer(timeRemaining)}</strong>
+                    </p>
+                </div>
+
+                <div className="game-mode-chip">
+                    <span>{leaderboardMode ? "Ranked" : "Classic"}</span>
+                    <i aria-hidden="true">|</i>
+                    <strong>{difficulty}</strong>
+                </div>
+            </header>
+
+            <section className={`game-map-dock${minimapExpanded ? " is-expanded" : ""}`}>
+                <div
+                    className="game-minimap-stage"
+                    onPointerEnter={(e) => {
+                        if (e.pointerType === "mouse") setMinimapHovered(true);
+                    }}
+                    onPointerLeave={(e) => {
+                        if (e.pointerType === "mouse") setMinimapHovered(false);
+                    }}
+                    style={{
+                        transform: `scale(${minimapWrapperScale})`,
+                        transformOrigin: "bottom right",
+                    }}
+                >
+                    <Minimap
+                        pinPosition={pinPosition}
+                        unlabeled={unlabeledMap}
+                        onPinChange={setPinPosition}
+                        mapHeightPx={displayedMinimapHeightPx}
+                        initialScale={GAME_MINIMAP_INITIAL_SCALE}
+                        initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
+                        onTouchTap={minimapTouchExpanded ? undefined : () => setMinimapTouchExpanded(true)}
+                        onTouchEdgeTap={minimapTouchExpanded ? () => setMinimapTouchExpanded(false) : undefined}
+                    />
+                </div>
+
+                <div className="game-guess-control" style={{width: `${guessButtonWidthPx}px`}}>
+                    <GuessButton
+                        session_id={sessionId}
+                        image_url={roundImageUrl}
+                        round_number={roundNumber}
+                        max_rounds={maxRounds}
+                        coordinates={pinPosition}
+                        gameState={gameNavigationState}
+                        autoSubmitSignal={autoSubmitSignal}
+                    />
+                </div>
+            </section>
+        </main>
     );
 }

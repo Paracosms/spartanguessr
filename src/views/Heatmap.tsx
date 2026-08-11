@@ -3,9 +3,18 @@ import Minimap from "../components/Minimap";
 import type { Point } from "../utils/types";
 
 const HEATMAP_HEIGHT_VH = 0.92;
+const HEATMAP_ASPECT_RATIO = 1428 / 1503;
+const HEATMAP_VIEWPORT_GUTTER_PX = 16;
 
 function computeMinimapHeight() {
-    return Math.round(window.innerHeight * HEATMAP_HEIGHT_VH);
+    const availableWidthAsHeight = (
+        window.innerWidth - HEATMAP_VIEWPORT_GUTTER_PX * 2
+    ) / HEATMAP_ASPECT_RATIO;
+
+    return Math.max(1, Math.round(Math.min(
+        window.innerHeight * HEATMAP_HEIGHT_VH,
+        availableWidthAsHeight,
+    )));
 }
 
 // Ask AI to convert image_map.json into
@@ -42,50 +51,30 @@ export default function Heatmap() {
     }, []);
 
     return (
-        <main
-            style={{
-                backgroundColor: "#ffffff",
-                width: "100vw",
-                height: "100vh",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-            }}
-        >
-            <Minimap
-                pinPosition={null}
-                onPinChange={() => {}}
-                unlabeled={false}
-                allowPinPlacement={false}
-                mapHeightPx={minimapHeightPx}
-                initializeScaleToMinZoom
-                heatmapPoints={uniqueLocations}
-                heatmapDotSize={dotSize}
-            />
-            <div
-                style={{
-                    position: "absolute",
-                    bottom: "16px",
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    background: "rgba(0,0,0,0.7)",
-                    padding: "8px 16px",
-                    borderRadius: "20px",
-                }}
-            >
-                <span style={{ color: "#fff", fontSize: "14px", fontWeight: 600 }}>Dot Size</span>
+        <main className="heatmap-page">
+
+            <div className="heatmap-map">
+                <Minimap
+                    pinPosition={null}
+                    onPinChange={() => {}}
+                    unlabeled={false}
+                    allowPinPlacement={false}
+                    mapHeightPx={minimapHeightPx}
+                    initializeScaleToMinZoom
+                    heatmapPoints={uniqueLocations}
+                    heatmapDotSize={dotSize}
+                />
+            </div>
+
+            <div className="heatmap-controls">
+                <span><strong>Dot size</strong><small>{dotSize}px</small></span>
                 <input
                     type="range"
                     min={4}
                     max={24}
                     value={dotSize}
                     onChange={(e) => setDotSize(Number(e.target.value))}
-                    style={{ width: "120px", cursor: "pointer", accentColor: "#ff3b30" }}
+                    aria-label="Heatmap dot size"
                 />
             </div>
         </main>

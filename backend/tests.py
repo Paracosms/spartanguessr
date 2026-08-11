@@ -10,6 +10,7 @@ import importlib
 import os
 import sys
 import pytest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from image_catalog import load_image_catalog
@@ -35,6 +36,7 @@ def mock_redis():
     r.zrevrank.return_value = 0     # position 1 (0-indexed)
     r.zremrangebyrank.return_value = 0
     r.zcount.return_value = 0
+    r.eval.return_value = [1, 1, 1, 1]
     r.set.return_value = True       # nx lock returns True = acquired
     r.delete.return_value = 1
     return r
@@ -104,6 +106,7 @@ def make_session_json(**overrides):
         "total_score": "0",
         "leaderboard_submitted": "false",
         "created_at": "2026-01-01T00:00:00+00:00",
+        "completed_at": "",
     }
     base.update(overrides)
     return json.dumps(base)
@@ -116,6 +119,7 @@ def mock_completed_leaderboard_session(mock_redis, **overrides):
         "total_score": "9999",
         "leaderboard_mode": "true",
         "leaderboard_submitted": "false",
+        "completed_at": "2026-08-11T19:00:00+00:00",
     }
     session_data.update(overrides)
     mock_redis.get.return_value = make_session_json(**session_data)
@@ -142,6 +146,7 @@ class TestLoadSession:
         assert session.session_id == "json-session"
         assert session.difficulty == "medium"
         assert session.max_rounds == 3
+        assert session.completed_at is None
 
 
 # ---------------------------------------------------------------------------
@@ -211,51 +216,132 @@ class TestGuessTTL:
 
 
 # ---------------------------------------------------------------------------
-# Leaderboard cap tests
+# Leaderboard period tests
 # ---------------------------------------------------------------------------
 
-class TestLeaderboardCap:
-    def test_add_to_leaderboard_trims_after_add(self, client, app):
-        """POST /leaderboard must call zremrangebyrank to enforce the 50-entry cap."""
+class TestLeaderboardPeriods:
+    def test_daily_resets_at_pacific_midnight(self, app):
+        _, flask_app, _ = app
+
+        before = flask_app.get_leaderboard_periods("2026-08-12T06:59:59+00:00")
+        after = flask_app.get_leaderboard_periods("2026-08-12T07:00:00+00:00")
+
+        assert before["daily"]["period_start"] == "2026-08-11"
+        assert after["daily"]["period_start"] == "2026-08-12"
+
+    def test_weekly_resets_monday_at_pacific_midnight(self, app):
+        _, flask_app, _ = app
+
+        before = flask_app.get_leaderboard_periods("2026-08-17T06:59:59+00:00")
+        after = flask_app.get_leaderboard_periods("2026-08-17T07:00:00+00:00")
+
+        assert before["weekly"]["period_start"] == "2026-08-10"
+        assert after["weekly"]["period_start"] == "2026-08-17"
+
+    def test_week_start_can_be_in_previous_year(self, app):
+        _, flask_app, _ = app
+        periods = flask_app.get_leaderboard_periods("2026-01-01T20:00:00+00:00")
+        assert periods["weekly"]["period_start"] == "2025-12-29"
+
+    def test_spring_dst_day_expires_after_local_midnight_plus_session_ttl(self, app):
+        _, flask_app, _ = app
+        periods = flask_app.get_leaderboard_periods("2026-03-08T20:00:00+00:00")
+        expected = int(datetime.fromisoformat("2026-03-09T08:00:00+00:00").timestamp())
+        assert periods["daily"]["expires_at"] == expected
+
+    def test_fall_dst_day_and_week_expire_after_local_boundaries(self, app):
+        _, flask_app, _ = app
+        periods = flask_app.get_leaderboard_periods("2026-11-01T20:00:00+00:00")
+        expected = int(datetime.fromisoformat("2026-11-02T09:00:00+00:00").timestamp())
+        assert periods["daily"]["expires_at"] == expected
+        assert periods["weekly"]["expires_at"] == expected
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard atomic submission tests
+# ---------------------------------------------------------------------------
+
+class TestLeaderboardSubmission:
+    def test_submission_uses_one_atomic_script_for_both_boards_and_session(self, client, app):
         _, flask_app, mock_redis = app
-        mock_completed_leaderboard_session(mock_redis)
+        mock_redis.eval.return_value = [1, 3, 1, 7]
+        mock_completed_leaderboard_session(mock_redis, total_score="7500")
 
         res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player1"})
+        data = res.get_json()
 
         assert res.status_code == 201
-        mock_redis.zremrangebyrank.assert_called_once_with(
-            flask_app.LEADERBOARD_KEY,
-            0,
-            -(flask_app.MAX_LEADERBOARD_SIZE + 1),
-        )
+        assert data["position"] == 3
+        assert data["boards"]["daily"]["position"] == 3
+        assert data["boards"]["weekly"]["position"] == 7
+        mock_redis.eval.assert_called_once()
+        _, kwargs = mock_redis.eval.call_args
+        assert kwargs["keys"] == [
+            "leaderboard:daily:2026-08-11",
+            "leaderboard:weekly:2026-08-10",
+            "session:test-session-123",
+        ]
+        assert kwargs["args"][2] == flask_app.MAX_LEADERBOARD_SIZE
+        assert 'redis.call("zadd"' in mock_redis.eval.call_args.args[0]
+        assert 'redis.call("zremrangebyrank"' in mock_redis.eval.call_args.args[0]
+        assert "-(max_size + 1)" in mock_redis.eval.call_args.args[0]
+        assert 'redis.call("set"' in mock_redis.eval.call_args.args[0]
 
-    def test_trim_happens_after_zadd(self, client, app):
-        """zremrangebyrank must be called after zadd, not before."""
-        _, flask_app, mock_redis = app
-        call_order = []
-        mock_completed_leaderboard_session(mock_redis, total_score="5000")
-
-        mock_redis.zadd.side_effect = lambda *a, **kw: call_order.append("zadd")
-        mock_redis.zremrangebyrank.side_effect = lambda *a, **kw: call_order.append("zremrangebyrank")
-
-        client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player2"})
-
-        assert call_order == ["zadd", "zremrangebyrank"], \
-            f"Expected zadd then zremrangebyrank, got: {call_order}"
-
-    def test_add_leaderboard_returns_position(self, client, app):
-        """POST /leaderboard should return name, score, and position."""
+    def test_score_can_survive_only_one_board(self, client, app):
         _, _, mock_redis = app
-        mock_redis.zrevrank.return_value = 2  # 0-indexed → position 3
-        mock_completed_leaderboard_session(mock_redis, total_score="7500")
+        mock_redis.eval.return_value = [1, 8, 0, 0]
+        mock_completed_leaderboard_session(mock_redis)
+
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player2"})
+        data = res.get_json()
+
+        assert res.status_code == 201
+        assert data["boards"]["daily"]["position"] == 8
+        assert data["boards"]["weekly"]["position"] is None
+
+    def test_submission_is_consumed_when_score_falls_off_both_boards(self, client, app):
+        _, _, mock_redis = app
+        mock_redis.eval.return_value = [0, 0, 0, 0]
+        mock_completed_leaderboard_session(mock_redis)
 
         res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player3"})
         data = res.get_json()
 
         assert res.status_code == 201
-        assert data["name"] == "Player3"
-        assert data["score"] == 7500
-        assert data["position"] == 3
+        assert data["position"] is None
+        saved_session = json.loads(mock_redis.eval.call_args.kwargs["args"][5])
+        assert saved_session["leaderboard_submitted"] == "true"
+
+    def test_repeated_names_remain_unique_by_session(self, app):
+        _, flask_app, _ = app
+        first = flask_app.encode_leaderboard_member("session-a", "SPARTAN", "2026-08-11T19:00:00+00:00")
+        second = flask_app.encode_leaderboard_member("session-b", "SPARTAN", "2026-08-11T19:00:00+00:00")
+        assert first != second
+        assert flask_app.get_leaderboard_member_name(first) == "SPARTAN"
+
+    def test_earlier_equal_score_wins_full_board_cutoff(self, app):
+        _, flask_app, mock_redis = app
+        mock_redis.zcard.return_value = 50
+        later = flask_app.encode_leaderboard_member("later", "LATER", "2026-08-11T20:00:00+00:00")
+        earlier = flask_app.encode_leaderboard_member("earlier", "EARLIER", "2026-08-11T19:00:00+00:00")
+        mock_redis.zrange.return_value = [(later, 9000)]
+
+        qualifies, position = flask_app.get_leaderboard_position_for_score("board", 9000, earlier)
+
+        assert qualifies is True
+        assert position == 1
+
+    def test_later_equal_score_does_not_displace_cutoff(self, app):
+        _, flask_app, mock_redis = app
+        mock_redis.zcard.return_value = 50
+        earlier = flask_app.encode_leaderboard_member("earlier", "EARLIER", "2026-08-11T19:00:00+00:00")
+        later = flask_app.encode_leaderboard_member("later", "LATER", "2026-08-11T20:00:00+00:00")
+        mock_redis.zrange.return_value = [(earlier, 9000)]
+
+        qualifies, position = flask_app.get_leaderboard_position_for_score("board", 9000, later)
+
+        assert qualifies is False
+        assert position is None
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +357,17 @@ class TestLeaderboardRead:
         res = client.get("/leaderboard")
         assert res.status_code == 200
         assert res.get_json() == []
+        assert mock_redis.zrange.call_args.args[0].startswith("leaderboard:daily:")
+
+    def test_get_weekly_leaderboard_uses_weekly_key(self, client, app):
+        _, _, mock_redis = app
+        res = client.get("/leaderboard?period=weekly")
+        assert res.status_code == 200
+        assert mock_redis.zrange.call_args.args[0].startswith("leaderboard:weekly:")
+
+    def test_get_leaderboard_rejects_invalid_period(self, client):
+        res = client.get("/leaderboard?period=monthly")
+        assert res.status_code == 400
 
     def test_get_leaderboard_ranks(self, client, app):
         """Tied scores share the same rank; distinct scores get sequential ranks."""
@@ -294,33 +391,56 @@ class TestLeaderboardRead:
 # ---------------------------------------------------------------------------
 
 class TestLeaderboardQualify:
-    def test_qualifies_when_board_not_full(self, client, app):
-        """Score always qualifies when fewer than 50 entries exist."""
+    def test_completed_session_qualifies_for_both_boards(self, client, app):
         _, _, mock_redis = app
         mock_redis.zcard.return_value = 10
         mock_redis.zcount.return_value = 5  # 5 scores above → position 6
+        mock_completed_leaderboard_session(mock_redis)
 
-        res = client.get("/leaderboard/qualify?score=1000")
+        res = client.get("/leaderboard/qualify?session_id=test-session-123")
         data = res.get_json()
 
         assert res.status_code == 200
         assert data["qualifies"] is True
         assert data["position"] == 6
+        assert data["submitted"] is False
+        assert data["boards"]["daily"]["qualifies"] is True
+        assert data["boards"]["weekly"]["qualifies"] is True
 
-    def test_does_not_qualify_when_score_too_low(self, client, app):
-        """Score below the lowest top-50 entry should not qualify."""
+    def test_session_can_qualify_for_only_one_board(self, client, app):
+        _, _, mock_redis = app
+        mock_completed_leaderboard_session(mock_redis, total_score="9999")
+        mock_redis.zcard.side_effect = [10, 50]
+        mock_redis.zrange.return_value = [("cutoff", 12000)]
+
+        res = client.get("/leaderboard/qualify?session_id=test-session-123")
+        data = res.get_json()
+
+        assert res.status_code == 200
+        assert data["qualifies"] is True
+        assert data["boards"]["daily"]["qualifies"] is True
+        assert data["boards"]["weekly"]["qualifies"] is False
+
+    def test_session_does_not_qualify_for_either_board(self, client, app):
         _, _, mock_redis = app
         mock_redis.zcard.return_value = 50
         mock_redis.zrange.return_value = [("Lowest", 9000)]  # lowest in top 50
+        mock_completed_leaderboard_session(mock_redis, total_score="100")
 
-        res = client.get("/leaderboard/qualify?score=100")
+        res = client.get("/leaderboard/qualify?session_id=test-session-123")
         data = res.get_json()
 
         assert res.status_code == 200
         assert data["qualifies"] is False
 
-    def test_qualify_missing_score_param(self, client):
-        """GET /leaderboard/qualify without score param returns 400."""
+    def test_score_fallback_remains_available_during_rollout(self, client, app):
+        _, _, mock_redis = app
+        mock_redis.zcard.return_value = 10
+        res = client.get("/leaderboard/qualify?score=1000")
+        assert res.status_code == 200
+        assert res.get_json()["qualifies"] is True
+
+    def test_qualify_missing_session_and_score(self, client):
         res = client.get("/leaderboard/qualify")
         assert res.status_code == 400
 
@@ -337,6 +457,10 @@ class TestLeaderboardValidation:
 
     def test_rejects_missing_session_id(self, client):
         res = client.post("/leaderboard", json={"name": "Player"})
+        assert res.status_code == 400
+
+    def test_rejects_non_string_name(self, client):
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": 123})
         assert res.status_code == 400
 
     def test_rejects_client_supplied_score(self, client):
@@ -364,6 +488,14 @@ class TestLeaderboardValidation:
     def test_rejects_duplicate_session_submission(self, client, app):
         _, _, mock_redis = app
         mock_completed_leaderboard_session(mock_redis, leaderboard_submitted="true")
+
+        res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player"})
+
+        assert res.status_code == 409
+
+    def test_rejects_legacy_completed_session_without_completion_time(self, client, app):
+        _, _, mock_redis = app
+        mock_completed_leaderboard_session(mock_redis, completed_at="")
 
         res = client.post("/leaderboard", json={"session_id": "test-session-123", "name": "Player"})
 
@@ -454,6 +586,7 @@ class TestRandomImage:
         data = res.get_json()
 
         assert res.status_code == 200
+        assert data["image_id"] == "00000000000000000000000000000006"
         assert data["image_url"] == "https://images.example.com/00000000000000000000000000000006.jpg"
 
     def test_new_round_stores_internal_id_and_returns_direct_cdn_url(self, client, app):
@@ -467,8 +600,22 @@ class TestRandomImage:
         assert response.status_code == 200
         assert session.current_image_id in flask_app.image_by_id
         assert saved == [session]
+        assert data["image_id"] == session.current_image_id
         assert data["image_url"].startswith("https://images.example.com/")
         assert "(" not in data["image_url"]
+
+
+class TestImageCounts:
+    def test_returns_only_category_and_total_counts(self, client):
+        response = client.get("/image-counts")
+
+        assert response.status_code == 200
+        assert response.get_json() == {
+            "easy": 2,
+            "medium": 2,
+            "hard": 2,
+            "total": 6,
+        }
 
 
 class TestCatalogValidation:
@@ -533,6 +680,35 @@ class TestRateLimit:
 
         assert [response.status_code for response in responses] == [200] * 5 + [429]
         assert mock_redis.incr.call_count == flask_app.RATE_LIMIT_REQUESTS + 1
+
+
+class TestSessionCompletion:
+    def test_final_guess_records_server_completion_time(self, client, app):
+        _, flask_app, _ = app
+        session = flask_app.GameSession(
+            "test-session-123",
+            "hard",
+            1,
+            False,
+            seed="server-seed",
+            leaderboard_mode=True,
+        )
+        session.current_image_id = "00000000000000000000000000000006"
+
+        with patch("app.load_session", return_value=session), \
+             patch("app.save_session"), \
+             patch("app.save_guess"):
+            res = client.post("/guess", json={
+                "session_id": session.session_id,
+                "round_number": 1,
+                "guess_latitude": 12.0,
+                "guess_longitude": 34.0,
+            })
+
+        assert res.status_code == 200
+        assert res.get_json()["game_complete"] is True
+        assert session.completed_at is not None
+        assert datetime.fromisoformat(session.completed_at).tzinfo is not None
 
 
 class TestSeedStability:
