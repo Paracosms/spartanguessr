@@ -23,7 +23,7 @@ type GameFormData = {
 
 type LandingPage = "settings" | "stats" | "about" | "leaderboard";
 
-const COMPACT_LANDING_QUERY = "(max-width: 899px), (orientation: portrait), (pointer: coarse)";
+const COMPACT_LANDING_QUERY = "(max-width: 899px), (max-height: 560px), (orientation: portrait), (pointer: coarse)";
 
 const DIFFICULTY_TO_LEVEL: Record<DifficultyLabel, 1 | 2 | 3> = {
     Easy: 1,
@@ -129,19 +129,6 @@ export default function LandingCenterPanel() {
             };
         });
     }
-
-    // leaving this here in case we ever need it again
-    /* SELECTION SUMMARY:
-        {`{
-            difficulty: ${formData.difficulty}
-            unlabeled_map: ${formData.unlabeled_map}
-            round_count: ${formData.round_count}
-            timer_length: ${formData.timer_length}
-            seed: ${formData.seed}
-            outside_only: ${formData.outside_only}
-            leaderboard_mode: ${formData.leaderboard_mode}
-        }`}
-     */
 
     async function sendToServer() {
         if (isStarting) return;

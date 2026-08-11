@@ -3,9 +3,18 @@ import Minimap from "../components/Minimap";
 import type { Point } from "../utils/types";
 
 const HEATMAP_HEIGHT_VH = 0.92;
+const HEATMAP_ASPECT_RATIO = 1428 / 1503;
+const HEATMAP_VIEWPORT_GUTTER_PX = 16;
 
 function computeMinimapHeight() {
-    return Math.round(window.innerHeight * HEATMAP_HEIGHT_VH);
+    const availableWidthAsHeight = (
+        window.innerWidth - HEATMAP_VIEWPORT_GUTTER_PX * 2
+    ) / HEATMAP_ASPECT_RATIO;
+
+    return Math.max(1, Math.round(Math.min(
+        window.innerHeight * HEATMAP_HEIGHT_VH,
+        availableWidthAsHeight,
+    )));
 }
 
 // Ask AI to convert image_map.json into

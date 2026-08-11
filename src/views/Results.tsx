@@ -16,9 +16,7 @@ import type {
     LeaderboardQualificationResponse,
     SubmitLeaderboardEntryResponse,
 } from "../utils/api.tsx";
-const GOLD = "#FFC108";
-
-const RANK_COLORS: Record<number, string> = { 1: GOLD, 2: "#C0C0C0", 3: "#CD7F32" };
+import { getRankLabel, RANK_COLORS } from "../utils/leaderboard.ts";
 
 function formatPeriodStart(period: LeaderboardPeriod, periodStart: string) {
     const formattedDate = new Intl.DateTimeFormat("en-US", {
@@ -150,20 +148,6 @@ export default function Results() {
         navigate("/")
     }
 
-    function getRankLabel(rank: number) {
-        const mod100 = rank % 100;
-        const mod10 = rank % 10;
-        if (mod100 >= 11 && mod100 <= 13) return `${rank}TH`; // 11th, 12th, 13th are exceptions
-        if (mod10 === 1) return `${rank}ST`;
-        if (mod10 === 2) return `${rank}ND`;
-        if (mod10 === 3) return `${rank}RD`;
-        return `${rank}TH`;
-    }
-
-    function getRowColor(rank: number) {
-        return RANK_COLORS[rank] ?? "#ffffff";
-    }
-
     return (
         <main className="results-page">
             <div className="results-background" style={{backgroundImage: `url(${Background})`}} />
@@ -272,7 +256,7 @@ export default function Results() {
                                 </thead>
                                 <tbody>
                                     {leaderboard.map((entry, index) => {
-                                        const color = getRowColor(entry.rank);
+                                        const color = RANK_COLORS[entry.rank] ?? "#ffffff";
                                         return (
                                             <tr key={index}>
                                                 <td style={{color}}><span>{getRankLabel(entry.rank)}</span></td>

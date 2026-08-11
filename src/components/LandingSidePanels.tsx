@@ -7,8 +7,8 @@ import MouseLeftClick from "../assets/icons/MouseLeftClick.svg";
 import HandGrabbing from "../assets/icons/HandGrabbing.svg";
 import MouseScroll from "../assets/icons/MouseScroll.svg";
 import Trophy from "../assets/icons/Trophy.svg";
+import { getRankLabel, RANK_COLORS } from "../utils/leaderboard.ts";
 
-const RANK_COLORS: Record<number, string> = { 1: "#FFC108", 2: "#C0C0C0", 3: "#CD7F32" };
 const LANDING_MINIMAP_REFERENCE_SIZE_VH = 40;
 const LANDING_MINIMAP_SIZE_VH = 46; // Size of title-screen minimap.
 const LANDING_MINIMAP_ZOOM_RATIO = LANDING_MINIMAP_SIZE_VH / LANDING_MINIMAP_REFERENCE_SIZE_VH;
@@ -17,16 +17,6 @@ const LANDING_MINIMAP_INITIAL_OFFSET = {
     x: -114 * LANDING_MINIMAP_ZOOM_RATIO,
     y: -92 * LANDING_MINIMAP_ZOOM_RATIO,
 };
-
-function getRankLabel(rank: number) {
-    const mod100 = rank % 100;
-    const mod10 = rank % 10;
-    if (mod100 >= 11 && mod100 <= 13) return `${rank}TH`;
-    if (mod10 === 1) return `${rank}ST`;
-    if (mod10 === 2) return `${rank}ND`;
-    if (mod10 === 3) return `${rank}RD`;
-    return `${rank}TH`;
-}
 
 export function LandingMapPanel() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);

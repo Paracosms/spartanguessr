@@ -7,7 +7,8 @@ import type { ScoreRouteState } from "../utils/types";
 const SCORE_MINIMAP_HEIGHT_VH = 0.58;
 const SCORE_MINIMAP_ASPECT_RATIO = 1428 / 1503;
 const SCORE_VIEWPORT_GUTTER_PX = 16;
-const SCORE_STACK_BREAKPOINT_PX = 900;
+const SCORE_NARROW_STACK_RESERVED_HEIGHT_PX = 420;
+const SCORE_STACK_RESERVED_HEIGHT_PX = 380;
 
 type ViewportState = {
 	width: number;
@@ -23,8 +24,13 @@ function getViewportState(): ViewportState {
 
 function computeMinimapHeight(viewport: ViewportState) {
 	const isShortLandscape = viewport.width > viewport.height && viewport.height <= 560;
-	const isStacked = viewport.width < SCORE_STACK_BREAKPOINT_PX && !isShortLandscape;
-	const availableHeight = isStacked ? viewport.height - 260 : viewport.height - 64;
+	const isStacked = !isShortLandscape;
+	const stackedReservedHeight = viewport.width <= 600
+		? SCORE_NARROW_STACK_RESERVED_HEIGHT_PX
+		: SCORE_STACK_RESERVED_HEIGHT_PX;
+	const availableHeight = isStacked
+		? viewport.height - stackedReservedHeight
+		: viewport.height - 64;
 	const availableMapWidth = isStacked
 		? viewport.width - SCORE_VIEWPORT_GUTTER_PX * 2
 		: viewport.width * 0.58;

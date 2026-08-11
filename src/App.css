@@ -23,6 +23,7 @@
 }
 
 html {
+	overflow-x: hidden;
 	background: var(--navy-950);
 }
 
@@ -219,7 +220,7 @@ summary:focus-visible {
 
 .landing-page {
 	--landing-column-gap: clamp(1.5rem, 2.5vw, 2.75rem);
-	--landing-panel-height: 60vh;
+	--landing-panel-height: max(60vh, 520px);
 	--landing-tabs-height: 51px;
 	--landing-card-body-height: calc(var(--landing-panel-height) - var(--landing-tabs-height));
 	position: relative;
@@ -1175,12 +1176,11 @@ summary:focus-visible {
 .score-background,
 .results-background {
 	position: fixed;
-	inset: -24px;
+	inset: 0;
 	z-index: -3;
 	background-position: center;
 	background-size: cover;
 	filter: blur(15px) saturate(0.85);
-	transform: scale(1.04);
 }
 
 .score-overlay,
@@ -1912,7 +1912,11 @@ summary:focus-visible {
 
 /* Responsive */
 
-@media (max-width: 899px), (orientation: portrait), (pointer: coarse) {
+@media (max-width: 899px), (max-height: 560px), (orientation: portrait), (pointer: coarse) {
+	.landing-logo {
+		transform: none;
+	}
+
 	.landing-desktop-layout {
 		display: block;
 		width: min(100%, 600px);
@@ -1924,7 +1928,15 @@ summary:focus-visible {
 
 	.landing-card-shell {
 		width: min(100%, 600px);
+		height: auto;
 		max-width: none;
+	}
+
+	.start-card,
+	.stats-panel,
+	.about-panel,
+	.landing-leaderboard-tab-panel {
+		height: auto;
 	}
 }
 
@@ -2268,16 +2280,17 @@ summary:focus-visible {
 	}
 
 	.score-layout {
-		grid-template-columns: 1fr;
+		grid-template-columns: auto minmax(260px, 1fr);
 		gap: 1rem;
 		width: min(100% - 2rem, 1120px);
-		padding: 3.5rem 0 0.75rem;
+		padding: 3rem 0 0.5rem;
 	}
 
 	.score-card {
 		grid-template-columns: 1fr;
-		gap: 1rem;
-		padding: 1rem;
+		width: 100%;
+		gap: 0.65rem;
+		padding: 0.75rem;
 	}
 
 	.score-card-divider {
@@ -2291,7 +2304,7 @@ summary:focus-visible {
 	}
 
 	.round-progress {
-		margin: 0.7rem 0;
+		margin: 0.5rem 0;
 	}
 
 	.results-header {
@@ -2299,13 +2312,47 @@ summary:focus-visible {
 	}
 
 	.results-shell {
-		grid-template-columns: 1fr;
-		grid-template-rows: auto minmax(0, 1fr);
-		width: min(100% - 2rem, 760px);
+		grid-template-columns: minmax(160px, 0.65fr) minmax(0, 1.35fr);
+		grid-template-rows: minmax(0, 1fr);
+		align-items: stretch;
+		width: min(100% - 2rem, 1120px);
 		height: calc(100dvh - 53px);
 		min-height: 0;
 		gap: 0.75rem;
 		padding: 0.25rem 0;
+	}
+
+	.results-hero {
+		align-self: center;
+		max-height: 100%;
+		overflow-y: auto;
+	}
+
+	.results-hero .final-score strong {
+		font-size: clamp(2.75rem, 14vh, 4.25rem);
+	}
+
+	.results-hero .final-score {
+		margin-bottom: 0.3rem;
+		transform: none;
+	}
+
+	.results-hero .qualification-card {
+		margin-bottom: 0;
+		padding: 0.55rem;
+	}
+
+	.results-hero .qualification-card p {
+		margin-bottom: 0.4rem;
+		font-size: 0.66rem;
+	}
+
+	.results-hero .qualification-card form {
+		gap: 0.35rem;
+	}
+
+	.results-hero .qualification-card input {
+		padding: 0.55rem;
 	}
 
 	.final-score {
@@ -2349,6 +2396,10 @@ summary:focus-visible {
 }
 
 @media (max-height: 960px) {
+	.landing-logo {
+		transform: none;
+	}
+
 	.landing-shell {
 		place-items: center;
 		padding: 0;
@@ -2420,6 +2471,12 @@ summary:focus-visible {
 
 	.settings-toggles::after {
 		display: none;
+	}
+}
+
+@media (max-width: 899px) {
+	.landing-footnote {
+		margin: 1rem 1rem 1.5rem;
 	}
 }
 

@@ -399,7 +399,6 @@ export default function Minimap({
             }));
         }
 
-        // Runs every time the mouse moves
         function handleMouseMove(e: MouseEvent) {
             if (!dragging) return;
 
