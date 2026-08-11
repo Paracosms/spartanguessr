@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
 import Logo from "../assets/SpartanguessrLogo.png";
-import Spear from "../assets/WebIcon.png";
+import Spear from "../assets/icons/WebIcon.png";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
 import { ApiError, getRandomImage } from "../utils/api.tsx";

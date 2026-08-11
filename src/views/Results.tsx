@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
-import Background from "../assets/LeaderboardBackground.jpg";
+import Background from "../assets/backgrounds/LeaderboardBackground.jpg";
 import Logo from "../assets/SpartanguessrLogo.png";
 import type { ResultsRouteState } from "../utils/types";
 import {

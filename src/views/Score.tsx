@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Minimap from "../components/Minimap";
 import Logo from "../assets/SpartanguessrLogo.png";
-import Pin from "../assets/Pin.png";
+import Pin from "../assets/maps/Pin.png";
 import type { ScoreRouteState } from "../utils/types";
 const SCORE_MINIMAP_HEIGHT_VH = 0.58;
 const SCORE_MINIMAP_ASPECT_RATIO = 1428 / 1503;

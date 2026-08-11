@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import LandingCenterPanel from "./components/LandingCenterPanel.tsx";
 import Game from "./views/Game.tsx"
 import Heatmap from "./views/Heatmap.tsx";
+import MapPage from "./views/Map.tsx";
 import Score from "./views/Score.tsx";
 import Results from "./views/Results.tsx";
 import {Routes, Route} from "react-router-dom";
@@ -41,6 +42,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/game" element={<Game />} />
           <Route path="/heatmap" element={<Heatmap />} />
+          <Route path="/map" element={<MapPage />} />
           <Route path="/score" element={<Score />} />
           <Route path="/results" element={<Results />} />
       </Routes>

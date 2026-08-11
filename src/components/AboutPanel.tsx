@@ -1,4 +1,5 @@
 import Logo from "../assets/SpartanguessrLogo.png";
+import { Link } from "react-router-dom";
 
 const demoTeam = [
     { name: "AJ", color: "#ed8796" },
@@ -31,7 +32,7 @@ export default function AboutPanel() {
                 <span>Created by:</span>
                 <strong>Andrew Hiponia</strong>
             </div>
-            <p className="about-submit">Want to add images to the game? Follow the steps here.</p>
+            <p className="about-submit">Want to add images to the game? Follow the steps <Link to="/map">here</Link>.</p>
         </section>
     );
 }

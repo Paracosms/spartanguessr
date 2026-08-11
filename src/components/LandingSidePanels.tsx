@@ -3,9 +3,9 @@ import Minimap from "./Minimap.tsx";
 import { getLeaderboard } from "../utils/api.tsx";
 import type { LeaderboardEntry } from "../utils/api.tsx";
 import type { Point } from "../utils/types.tsx";
-import MouseLeftClick from "../assets/MouseLeftClick.svg";
-import HandGrabbing from "../assets/HandGrabbing.svg";
-import MouseScroll from "../assets/MouseScroll.svg";
+import MouseLeftClick from "../assets/icons/MouseLeftClick.svg";
+import HandGrabbing from "../assets/icons/HandGrabbing.svg";
+import MouseScroll from "../assets/icons/MouseScroll.svg";
 
 const RANK_COLORS: Record<number, string> = { 1: "#FFC108", 2: "#C0C0C0", 3: "#CD7F32" };
 const LANDING_MINIMAP_REFERENCE_SIZE_VH = 40;

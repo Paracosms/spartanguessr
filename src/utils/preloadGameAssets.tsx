@@ -1,6 +1,6 @@
-import mapLabeled from "../assets/MapLabeled.svg";
-import mapUnlabeled from "../assets/MapUnlabeled.svg";
-import pin from "../assets/Pin.png";
+import mapLabeled from "../assets/maps/MapLabeled.svg";
+import mapUnlabeled from "../assets/maps/MapUnlabeled.svg";
+import pin from "../assets/maps/Pin.png";
 import { getRandomImage } from "./api.tsx";
 import type { ApiDifficulty } from "./types.tsx";
 
