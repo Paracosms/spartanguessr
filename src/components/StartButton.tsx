@@ -18,7 +18,7 @@ type GameFormData = {
     leaderboard_mode: boolean;
 };
 
-type LandingPage = "settings" | "credits" | "leaderboard";
+type LandingPage = "settings" | "stats" | "about" | "leaderboard";
 
 const COMPACT_LANDING_QUERY = "(max-width: 899px), (orientation: portrait), (pointer: coarse)";
 
@@ -74,9 +74,12 @@ export default function StartButton() {
         const mediaQuery = window.matchMedia(COMPACT_LANDING_QUERY);
         const handleChange = (event: MediaQueryListEvent) => {
             setShowLeaderboardTab(event.matches);
-            if (!event.matches) {
-                setActivePage((currentPage) => currentPage === "leaderboard" ? "settings" : currentPage);
-            }
+            setActivePage((currentPage) => {
+                if (event.matches ? currentPage === "stats" : currentPage === "leaderboard") {
+                    return "settings";
+                }
+                return currentPage;
+            });
         };
 
         mediaQuery.addEventListener("change", handleChange);
@@ -199,17 +202,19 @@ export default function StartButton() {
                 >
                     Play
                 </button>
-                <button
-                    className={`landing-tab${activePage === "credits" ? " is-active" : ""}`}
-                    type="button"
-                    role="tab"
-                    aria-selected={activePage === "credits"}
-                    aria-controls="landing-panel"
-                    id="landing-tab-credits"
-                    onClick={() => setActivePage("credits")}
-                >
-                    Credits
-                </button>
+                {!showLeaderboardTab && (
+                    <button
+                        className={`landing-tab${activePage === "stats" ? " is-active" : ""}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={activePage === "stats"}
+                        aria-controls="landing-panel"
+                        id="landing-tab-stats"
+                        onClick={() => setActivePage("stats")}
+                    >
+                        Stats
+                    </button>
+                )}
                 {showLeaderboardTab && (
                     <button
                         className={`landing-tab${activePage === "leaderboard" ? " is-active" : ""}`}
@@ -223,6 +228,17 @@ export default function StartButton() {
                         Leaderboard
                     </button>
                 )}
+                <button
+                    className={`landing-tab${activePage === "about" ? " is-active" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activePage === "about"}
+                    aria-controls="landing-panel"
+                    id="landing-tab-about"
+                    onClick={() => setActivePage("about")}
+                >
+                    About
+                </button>
             </div>
 
             {activePage === "settings" ? (
