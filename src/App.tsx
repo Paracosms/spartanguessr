@@ -1,7 +1,7 @@
 import './App.css';
 import Logo from "./assets/SpartanguessrLogo.png";
 import { useEffect } from "react";
-import StartButton from "./components/StartButton.tsx";
+import LandingCenterPanel from "./components/LandingCenterPanel.tsx";
 import Game from "./views/Game.tsx"
 import Heatmap from "./views/Heatmap.tsx";
 import Score from "./views/Score.tsx";
@@ -23,7 +23,7 @@ function LandingPage() {
                     <p className="landing-subtitle">How well do you know SJSU?</p>
                     <div className="landing-desktop-layout">
                         <LandingMapPanel />
-                        <StartButton />
+                        <LandingCenterPanel />
                         <LandingLeaderboardPanel />
                     </div>
                 </div>

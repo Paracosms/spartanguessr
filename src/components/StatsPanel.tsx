@@ -74,8 +74,8 @@ export default function StatsPanel() {
                 ["Time played", formatPlaytime(stats.playtimeMs)],
                 ["Games started", stats.gamesStarted.toLocaleString()],
                 ["Games completed", stats.gamesCompleted.toLocaleString()],
+                ["Ranked games completed", stats.rankedRunsCompleted.toLocaleString()],
                 ["Rounds played", stats.roundsPlayed.toLocaleString()],
-                ["Ranked runs completed", stats.rankedRunsCompleted.toLocaleString()],
                 ["Missed rounds", stats.missedRounds.toLocaleString()],
             ],
         },
@@ -110,11 +110,6 @@ export default function StatsPanel() {
             role="tabpanel"
             aria-labelledby="landing-tab-stats"
         >
-            <header>
-                <h2>Your stats</h2>
-                <p>Saved only in this browser.</p>
-            </header>
-
             <div className="stats-columns">
                 {columns.map((column) => (
                     <section className="stats-column" key={column.heading}>
@@ -130,6 +125,8 @@ export default function StatsPanel() {
                     </section>
                 ))}
             </div>
+
+            <p className="stats-local-note">Game data stored locally.</p>
         </section>
     );
 }

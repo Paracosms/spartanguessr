@@ -7,6 +7,7 @@ import { ApiError, createSession } from "../utils/api.tsx";
 import type { ApiDifficulty, GameRouteState } from "../utils/types";
 import { recordGameStarted } from "../utils/stats.ts";
 import StatsPanel from "./StatsPanel.tsx";
+import AboutPanel from "./AboutPanel.tsx";
 
 type DifficultyLabel = "Easy" | "Medium" | "Hard";
 
@@ -54,7 +55,7 @@ function levelToApiDifficulty(level: 1 | 2 | 3): ApiDifficulty {
     return "medium";
 }
 
-export default function StartButton() {
+export default function LandingCenterPanel() {
 
     const [activePage, setActivePage] = useState<LandingPage>("settings");
     const [showLeaderboardTab, setShowLeaderboardTab] = useState(() =>
@@ -303,32 +304,7 @@ export default function StartButton() {
             ) : activePage === "leaderboard" ? (
                 <LandingLeaderboardPanel embedded />
             ) : (
-                <section
-                    className="about-panel"
-                    id="landing-panel"
-                    role="tabpanel"
-                    aria-labelledby={`landing-tab-${activePage}`}
-                >
-                    <dl>
-                        <div className="about-row">
-                            <dt>Creator/maintainer</dt>
-                            <dd>___</dd>
-                        </div>
-                        <div className="about-row">
-                            <dt>Logo design</dt>
-                            <dd>___</dd>
-                        </div>
-                        <div className="about-row">
-                            <dt>Initial team</dt>
-                            <dd>___</dd>
-                        </div>
-                        <div className="about-row">
-                            <dt>Original idea by</dt>
-                            <dd>___</dd>
-                        </div>
-                    </dl>
-                    <p>If you would like to submit images to be included in game, please email me at ___</p>
-                </section>
+                <AboutPanel />
             )}
         </div>
     );
