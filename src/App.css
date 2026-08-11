@@ -95,6 +95,16 @@ summary:focus-visible {
 	text-align: center;
 }
 
+.landing-leaderboard-panel > header {
+	display: flex;
+	min-height: 64px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0 1rem;
+	text-align: left;
+}
+
 .landing-leaderboard-panel h2,
 .landing-map-panel h2,
 .map-explanation-panel h2 {
@@ -108,6 +118,56 @@ summary:focus-visible {
 .leaderboard-card table {
 	width: 100%;
 	border-collapse: collapse;
+}
+
+.leaderboard-period-tabs {
+	display: flex;
+	align-self: stretch;
+	align-items: stretch;
+	gap: clamp(1rem, 3vw, 2rem);
+	margin: 0;
+}
+
+.leaderboard-period-tabs button {
+	position: relative;
+	min-height: 46px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	font: inherit;
+	font-size: 0.88rem;
+	font-weight: 700;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: color 160ms ease;
+}
+
+.leaderboard-period-tabs button::after {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: var(--gold);
+	content: "";
+	transform: scaleX(0);
+	transform-origin: center;
+	transition: transform 160ms ease;
+}
+
+.leaderboard-period-tabs button:hover,
+.leaderboard-period-tabs button.is-active {
+	color: #fff;
+}
+
+.leaderboard-period-tabs button.is-active::after {
+	transform: scaleX(1);
+}
+
+.leaderboard-period-tabs button:focus-visible {
+	outline: 2px solid #fff;
+	outline-offset: 2px;
 }
 
 .primary-action,
@@ -1395,19 +1455,28 @@ summary:focus-visible {
 
 .leaderboard-card > header {
 	display: flex;
+	min-height: 64px;
 	align-items: center;
-	justify-content: center;
-	padding: 1.4rem 1.5rem 1.1rem;
+	justify-content: stretch;
+	padding: 0 1rem;
 	border-bottom: 1px solid var(--line);
-	text-align: center;
+	text-align: left;
+}
+
+.leaderboard-card > header > div {
+	display: flex;
+	width: 100%;
+	align-self: stretch;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
 }
 
 .leaderboard-card h2 {
 	margin: 0;
 	color: #fff;
-	font-size: 1.65rem;
+	font-size: 1.15rem;
 	font-weight: 900;
-	letter-spacing: -0.03em;
 }
 
 .submission-message {
@@ -1442,12 +1511,37 @@ summary:focus-visible {
 }
 
 .empty-leaderboard {
-	margin: 4rem auto;
+	display: flex;
+	min-height: 100%;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+	margin: 0 auto;
 	max-width: 260px;
 	color: var(--muted);
 	font-size: 0.8rem;
 	line-height: 1.6;
 	text-align: center;
+}
+
+.empty-leaderboard-icon {
+	width: 2.25rem;
+	height: 2.25rem;
+	filter: invert(74%) saturate(843%) brightness(101%) contrast(101%);
+	opacity: 0.95;
+}
+
+.empty-leaderboard-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+	margin: 0;
+}
+
+.empty-leaderboard-copy strong {
+	color: #fff;
+	font-weight: 900;
 }
 
 .leaderboard-card th {
@@ -2008,7 +2102,7 @@ summary:focus-visible {
 
 	.results-shell {
 		width: min(100% - 1.25rem, 560px);
-		height: calc(100dvh - 56px);
+		height: calc(100dvh - 58px);
 		gap: 0.75rem;
 		padding: 0.5rem 0 1rem;
 	}
@@ -2031,7 +2125,12 @@ summary:focus-visible {
 	}
 
 	.leaderboard-card > header {
-		padding: 1rem;
+		min-height: 64px;
+		padding: 0 1rem;
+	}
+
+	.leaderboard-card .leaderboard-period-tabs {
+		margin: 0;
 	}
 
 	.leaderboard-scroll {
@@ -2174,7 +2273,27 @@ summary:focus-visible {
 	}
 
 	.results-play-again {
-		padding: 0.85rem 1.15rem;
+		width: calc(100% - 1.5rem);
+		margin: 0.5rem 0.75rem 0.75rem;
+		padding: 0.65rem 1rem;
+	}
+
+	.leaderboard-card > header {
+		min-height: 56px;
+		padding: 0 1rem;
+	}
+
+	.leaderboard-card h2 {
+		font-size: 1.15rem;
+	}
+
+	.leaderboard-card .leaderboard-period-tabs {
+		margin: 0;
+	}
+
+	.leaderboard-card .leaderboard-period-tabs button {
+		min-height: 40px;
+		font-size: 0.76rem;
 	}
 
 	.leaderboard-card {

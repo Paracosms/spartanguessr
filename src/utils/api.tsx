@@ -58,9 +58,19 @@ export type SubmitGuessResponse = {
     guess_longitude: number;
 };
 
+export type LeaderboardPeriod = "daily" | "weekly";
+
+export type LeaderboardBoardQualification = {
+    qualifies: boolean;
+    position: number | null;
+    period_start: string;
+};
+
 export type LeaderboardQualificationResponse = {
     qualifies: boolean;
     position: number | null;
+    submitted: boolean;
+    boards: Record<LeaderboardPeriod, LeaderboardBoardQualification>;
 };
 
 export type LeaderboardEntry = {
@@ -94,7 +104,11 @@ export type SessionResultsResponse = {
 export type SubmitLeaderboardEntryResponse = {
     name: string;
     score: number;
-    position: number;
+    position: number | null;
+    boards: Record<LeaderboardPeriod, {
+        position: number | null;
+        period_start: string;
+    }>;
 };
 
 type ApiErrorBody = {
@@ -181,13 +195,14 @@ export function submitGuess(body: SubmitGuessRequest, signal?: AbortSignal) {
     return postJson<SubmitGuessResponse>("/guess", body, signal);
 }
 
-export function getLeaderboardQualification(score: number, signal?: AbortSignal) {
-    const params = new URLSearchParams({ score: String(score) });
+export function getLeaderboardQualification(sessionId: string, signal?: AbortSignal) {
+    const params = new URLSearchParams({ session_id: sessionId });
     return apiRequest<LeaderboardQualificationResponse>(`/leaderboard/qualify?${params.toString()}`, { signal });
 }
 
-export function getLeaderboard(signal?: AbortSignal) {
-    return apiRequest<LeaderboardEntry[]>("/leaderboard", { signal });
+export function getLeaderboard(period: LeaderboardPeriod = "daily", signal?: AbortSignal) {
+    const params = new URLSearchParams({ period });
+    return apiRequest<LeaderboardEntry[]>(`/leaderboard?${params.toString()}`, { signal });
 }
 
 export function getImageCounts(signal?: AbortSignal) {

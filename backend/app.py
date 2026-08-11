@@ -4,6 +4,8 @@ import json
 import uuid
 import secrets
 import time
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -26,8 +28,10 @@ CORS(app, origins=[
 # setup database using environment variables
 redis = Redis.from_env()
 
-LEADERBOARD_KEY = "leaderboard"
 MAX_LEADERBOARD_SIZE = 50
+LEADERBOARD_PERIODS = ("daily", "weekly")
+PACIFIC_TIMEZONE = ZoneInfo("America/Los_Angeles")
+MAX_MEMBER_TIMESTAMP_MICROSECONDS = 99_999_999_999_999_999_999
 SESSION_LOCK_TTL_SECONDS = 10
 SESSION_TTL_SECONDS = 60 * 60 # sessions expire after 1 hr
 RATE_LIMIT_SECONDS = 1
@@ -39,6 +43,35 @@ if redis.call("get", KEYS[1]) == ARGV[1] then
     return redis.call("del", KEYS[1])
 end
 return 0
+"""
+
+_SUBMIT_LEADERBOARD_SCRIPT = """
+local member = ARGV[1]
+local score = ARGV[2]
+local max_size = tonumber(ARGV[3])
+
+redis.call("zadd", KEYS[1], score, member)
+redis.call("zremrangebyrank", KEYS[1], 0, -(max_size + 1))
+redis.call("expireat", KEYS[1], tonumber(ARGV[4]))
+
+redis.call("zadd", KEYS[2], score, member)
+redis.call("zremrangebyrank", KEYS[2], 0, -(max_size + 1))
+redis.call("expireat", KEYS[2], tonumber(ARGV[5]))
+
+local daily_retained = redis.call("zscore", KEYS[1], member) and 1 or 0
+local weekly_retained = redis.call("zscore", KEYS[2], member) and 1 or 0
+local daily_position = 0
+local weekly_position = 0
+
+if daily_retained == 1 then
+    daily_position = redis.call("zcount", KEYS[1], "(" .. score, "+inf") + 1
+end
+if weekly_retained == 1 then
+    weekly_position = redis.call("zcount", KEYS[2], "(" .. score, "+inf") + 1
+end
+
+redis.call("set", KEYS[3], ARGV[6], "EX", tonumber(ARGV[7]))
+return {daily_retained, daily_position, weekly_retained, weekly_position}
 """
 
 IMAGE_CATALOG_PATH = os.environ.get("IMAGE_CATALOG_PATH")
@@ -85,18 +118,46 @@ def enforce_rate_limit():
     if is_rate_limited():
         return jsonify({"error": "Rate limit exceeded. Try again shortly."}), 429
 
-def encode_leaderboard_member(session_id, name):
-    return json.dumps({
-        "session_id": str(session_id),
-        "name": name,
-    }, separators=(",", ":"))
+def parse_utc_datetime(value):
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def get_leaderboard_periods(completed_at):
+    completed_utc = parse_utc_datetime(completed_at)
+    completed_pacific = completed_utc.astimezone(PACIFIC_TIMEZONE)
+    daily_start = completed_pacific.replace(hour=0, minute=0, second=0, microsecond=0)
+    weekly_start = daily_start - timedelta(days=daily_start.weekday())
+
+    return {
+        "daily": {
+            "key": f"leaderboard:daily:{daily_start.date().isoformat()}",
+            "period_start": daily_start.date().isoformat(),
+            "expires_at": int((daily_start + timedelta(days=1) + timedelta(seconds=SESSION_TTL_SECONDS)).timestamp()),
+        },
+        "weekly": {
+            "key": f"leaderboard:weekly:{weekly_start.date().isoformat()}",
+            "period_start": weekly_start.date().isoformat(),
+            "expires_at": int((weekly_start + timedelta(days=7) + timedelta(seconds=SESSION_TTL_SECONDS)).timestamp()),
+        },
+    }
+
+
+def encode_leaderboard_member(session_id, name, completed_at):
+    completed_utc = parse_utc_datetime(completed_at)
+    completed_microseconds = int(completed_utc.timestamp() * 1_000_000)
+    completion_order = MAX_MEMBER_TIMESTAMP_MICROSECONDS - completed_microseconds
+    data = json.dumps({"name": name}, separators=(",", ":"))
+    return f"{completion_order:020d}:{session_id}:{data}"
 
 def get_leaderboard_member_name(member):
     if isinstance(member, (bytes, bytearray)):
         member = member.decode("utf-8")
 
     try:
-        data = json.loads(member)
+        data = json.loads(member.split(":", 2)[-1])
         if isinstance(data, dict) and "name" in data:
             return str(data.get("name") or "Anonymous")
     except (TypeError, ValueError):
@@ -104,19 +165,35 @@ def get_leaderboard_member_name(member):
 
     return str(member)
 
-def get_leaderboard_position_for_score(score):
-    count = redis.zcard(LEADERBOARD_KEY)
+def get_leaderboard_position_for_score(key, score, member=None):
+    count = redis.zcard(key)
     if count < MAX_LEADERBOARD_SIZE:
-        return True, redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1
+        return True, redis.zcount(key, score + 1, "inf") + 1
 
-    lowest = redis.zrange(LEADERBOARD_KEY, MAX_LEADERBOARD_SIZE - 1, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
+    lowest = redis.zrange(key, 0, 0, withscores=True)
     if lowest:
+        lowest_member = lowest[0][0]
+        if isinstance(lowest_member, (bytes, bytearray)):
+            lowest_member = lowest_member.decode("utf-8")
         lowest_score = int(lowest[0][1])
-        qualifies = score >= lowest_score
-        position = redis.zcount(LEADERBOARD_KEY, score + 1, "inf") + 1 if qualifies else None
+        qualifies = score > lowest_score or (score == lowest_score and member is not None and member > lowest_member)
+        position = redis.zcount(key, score + 1, "inf") + 1 if qualifies else None
         return qualifies, position
 
     return True, 1
+
+
+def get_qualification_boards(score, periods, member=None):
+    boards = {}
+    for period in LEADERBOARD_PERIODS:
+        period_data = periods[period]
+        qualifies, position = get_leaderboard_position_for_score(period_data["key"], score, member)
+        boards[period] = {
+            "qualifies": qualifies,
+            "position": position,
+            "period_start": period_data["period_start"],
+        }
+    return boards
 
 # error debugging (i hate redis)
 def format_redis_error(err):
@@ -450,6 +527,8 @@ def submit_guess():
             session.current_round += 1
         else:
             session.current_round = session.max_rounds + 1
+            if session.completed_at is None:
+                session.completed_at = datetime.now(UTC).isoformat()
         session.current_image_id = None
         save_session(session)
 
@@ -500,11 +579,16 @@ def get_results(session_id):
     }), 200
 
 
-# GET /leaderboard
-# Returns top 50 scores with ranks (tied scores share same rank)
+# GET /leaderboard?period=daily|weekly
+# Returns the current period's top 50 scores with competition ranks.
 @app.route("/leaderboard")
 def get_leaderboard():
-    results = redis.zrange(LEADERBOARD_KEY, 0, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
+    period = request.args.get("period", "daily")
+    if period not in LEADERBOARD_PERIODS:
+        return jsonify({"error": "period must be daily or weekly."}), 400
+
+    periods = get_leaderboard_periods(datetime.now(UTC))
+    results = redis.zrange(periods[period]["key"], 0, MAX_LEADERBOARD_SIZE - 1, withscores=True, rev=True)
 
     leaderboard = []
     prev_score = None
@@ -520,16 +604,43 @@ def get_leaderboard():
     return jsonify(leaderboard), 200
 
 
-# GET /leaderboard/qualify?score=<score>
-# Check if a score qualifies for top 50
+# GET /leaderboard/qualify?session_id=<session_id>
+# Check whether a completed Ranked session qualifies for either current board.
 @app.route("/leaderboard/qualify")
 def check_qualify():
-    score = request.args.get("score", type=int)
-    if score is None:
-        return jsonify({"error": "Score is required."}), 400
+    session_id = request.args.get("session_id", "").strip()
+    submitted = False
+    member = None
 
-    qualifies, position = get_leaderboard_position_for_score(score)
-    return jsonify({"qualifies": qualifies, "position": position}), 200
+    if session_id:
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found."}), 404
+        if not session.leaderboard_mode:
+            return jsonify({"error": "Only Ranked sessions can qualify for the leaderboard."}), 400
+        if session.current_round <= session.max_rounds or not session.completed_at:
+            return jsonify({"error": "Game must be complete before checking leaderboard qualification."}), 409
+
+        score = session.total_score
+        submitted = session.leaderboard_submitted
+        periods = get_leaderboard_periods(session.completed_at)
+        member = encode_leaderboard_member(session.session_id, "", session.completed_at)
+    else:
+        # Temporary compatibility for the previous frontend during backend-first rollout.
+        score = request.args.get("score", type=int)
+        if score is None:
+            return jsonify({"error": "session_id is required."}), 400
+        periods = get_leaderboard_periods(datetime.now(UTC))
+
+    boards = get_qualification_boards(score, periods, member)
+    qualifies = any(board["qualifies"] for board in boards.values())
+    position = boards["daily"]["position"] or boards["weekly"]["position"]
+    return jsonify({
+        "qualifies": qualifies,
+        "position": position,
+        "submitted": submitted,
+        "boards": boards,
+    }), 200
 
 
 # POST /leaderboard
@@ -541,7 +652,10 @@ def add_to_leaderboard():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    name = data.get("name", "").strip()
+    raw_name = data.get("name", "")
+    if not isinstance(raw_name, str):
+        return jsonify({"error": "Name must be a string."}), 400
+    name = raw_name.strip()
     session_id = str(data.get("session_id", "")).strip()
 
     if not name:
@@ -565,27 +679,38 @@ def add_to_leaderboard():
             return jsonify({"error": "Only leaderboard mode sessions can submit scores."}), 400
         if session.current_round <= session.max_rounds:
             return jsonify({"error": "Game must be complete before submitting to the leaderboard."}), 409
+        if not session.completed_at:
+            return jsonify({"error": "Completed session is missing its completion time. Please play a new Ranked game."}), 409
         if session.leaderboard_submitted:
             return jsonify({"error": "Leaderboard score has already been submitted for this session."}), 409
 
         score = session.total_score
-        qualifies, _ = get_leaderboard_position_for_score(score)
-        if not qualifies:
-            return jsonify({"error": "Score does not qualify for the leaderboard."}), 409
-
-        member = encode_leaderboard_member(session.session_id, name)
-        redis.zadd(LEADERBOARD_KEY, {member: score})
-        redis.zremrangebyrank(LEADERBOARD_KEY, 0, -(MAX_LEADERBOARD_SIZE + 1)) # trim lowest scores so the set stays at 50
-        rank = redis.zrevrank(LEADERBOARD_KEY, member)
-        if rank is None:
-            return jsonify({"error": "Score does not qualify for the leaderboard."}), 409
-
+        periods = get_leaderboard_periods(session.completed_at)
+        member = encode_leaderboard_member(session.session_id, name, session.completed_at)
         session.leaderboard_submitted = True
-        save_session(session)
+        script_result = redis.eval(
+            _SUBMIT_LEADERBOARD_SCRIPT,
+            keys=[periods["daily"]["key"], periods["weekly"]["key"], f"session:{session.session_id}"],
+            args=[
+                member,
+                score,
+                MAX_LEADERBOARD_SIZE,
+                periods["daily"]["expires_at"],
+                periods["weekly"]["expires_at"],
+                json.dumps(session.to_dict()),
+                SESSION_TTL_SECONDS,
+            ],
+        )
 
-        position = rank + 1
+        daily_position = int(script_result[1]) if int(script_result[0]) else None
+        weekly_position = int(script_result[3]) if int(script_result[2]) else None
+        boards = {
+            "daily": {"position": daily_position, "period_start": periods["daily"]["period_start"]},
+            "weekly": {"position": weekly_position, "period_start": periods["weekly"]["period_start"]},
+        }
+        position = daily_position or weekly_position
 
-        return jsonify({"name": name, "score": score, "position": position}), 201
+        return jsonify({"name": name, "score": score, "position": position, "boards": boards}), 201
     finally:
         release_session_lock(session_id, lock_token)
 

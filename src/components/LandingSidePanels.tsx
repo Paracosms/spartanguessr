@@ -1,11 +1,12 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import Minimap from "./Minimap.tsx";
 import { getLeaderboard } from "../utils/api.tsx";
-import type { LeaderboardEntry } from "../utils/api.tsx";
+import type { LeaderboardEntry, LeaderboardPeriod } from "../utils/api.tsx";
 import type { Point } from "../utils/types.tsx";
 import MouseLeftClick from "../assets/icons/MouseLeftClick.svg";
 import HandGrabbing from "../assets/icons/HandGrabbing.svg";
 import MouseScroll from "../assets/icons/MouseScroll.svg";
+import Trophy from "../assets/icons/Trophy.svg";
 
 const RANK_COLORS: Record<number, string> = { 1: "#FFC108", 2: "#C0C0C0", 3: "#CD7F32" };
 const LANDING_MINIMAP_REFERENCE_SIZE_VH = 40;
@@ -66,21 +67,27 @@ type LandingLeaderboardPanelProps = {
 };
 
 export function LandingLeaderboardPanel({ embedded = false }: LandingLeaderboardPanelProps) {
+    const [activePeriod, setActivePeriod] = useState<LeaderboardPeriod>("daily");
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const panelIdPrefix = embedded ? "landing-embedded-leaderboard" : "landing-side-leaderboard";
 
     useEffect(() => {
         let cancelled = false;
 
-        void getLeaderboard()
+        void getLeaderboard(activePeriod)
             .then((data) => {
                 if (!cancelled) setLeaderboard(data);
             })
-            .catch((err) => console.error("Failed to fetch leaderboard:", err));
+            .catch((err) => console.error("Failed to fetch leaderboard:", err))
+            .finally(() => {
+                if (!cancelled) setIsLoading(false);
+            });
 
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [activePeriod]);
 
     return (
         <aside
@@ -93,10 +100,45 @@ export function LandingLeaderboardPanel({ embedded = false }: LandingLeaderboard
         >
             <header>
                 <h2>Leaderboard</h2>
+                <div className="leaderboard-period-tabs" role="tablist" aria-label="Leaderboard period">
+                    {(["daily", "weekly"] as const).map((period) => (
+                        <button
+                            key={period}
+                            type="button"
+                            role="tab"
+                            id={`${panelIdPrefix}-${period}-tab`}
+                            aria-controls={`${panelIdPrefix}-${period}-panel`}
+                            aria-selected={activePeriod === period}
+                            className={activePeriod === period ? "is-active" : ""}
+                            onClick={() => {
+                                if (period !== activePeriod) {
+                                    setIsLoading(true);
+                                    setLeaderboard([]);
+                                    setActivePeriod(period);
+                                }
+                            }}
+                        >
+                            {period === "daily" ? "Daily" : "Weekly"}
+                        </button>
+                    ))}
+                </div>
             </header>
-            <div className="landing-leaderboard-scroll">
-                {leaderboard.length === 0 ? (
-                    <p className="empty-leaderboard">No scores yet. Be the first Spartan on the board.</p>
+            <div
+                id={`${panelIdPrefix}-${activePeriod}-panel`}
+                className="landing-leaderboard-scroll"
+                role="tabpanel"
+                aria-labelledby={`${panelIdPrefix}-${activePeriod}-tab`}
+            >
+                {isLoading ? (
+                    <p className="empty-leaderboard">Loading leaderboard…</p>
+                ) : leaderboard.length === 0 ? (
+                    <div className="empty-leaderboard">
+                        <img className="empty-leaderboard-icon" src={Trophy} alt="" />
+                        <p className="empty-leaderboard-copy">
+                            <strong>No scores yet.</strong>
+                            <span>Be the first Spartan on the board.</span>
+                        </p>
+                    </div>
                 ) : (
                     <table>
                         <thead>

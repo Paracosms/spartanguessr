@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import Background from "../assets/backgrounds/LeaderboardBackground.jpg";
 import Logo from "../assets/SpartanguessrLogo.png";
+import Trophy from "../assets/icons/Trophy.svg";
 import type { ResultsRouteState } from "../utils/types";
 import {
     getLeaderboard,
@@ -9,10 +10,38 @@ import {
     getSessionResults,
     submitLeaderboardEntry,
 } from "../utils/api.tsx";
-import type { LeaderboardEntry } from "../utils/api.tsx";
+import type {
+    LeaderboardEntry,
+    LeaderboardPeriod,
+    LeaderboardQualificationResponse,
+    SubmitLeaderboardEntryResponse,
+} from "../utils/api.tsx";
 const GOLD = "#FFC108";
 
 const RANK_COLORS: Record<number, string> = { 1: GOLD, 2: "#C0C0C0", 3: "#CD7F32" };
+
+function formatPeriodStart(period: LeaderboardPeriod, periodStart: string) {
+    const formattedDate = new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+    }).format(new Date(`${periodStart}T12:00:00Z`));
+    return period === "daily" ? formattedDate : `week of ${formattedDate}`;
+}
+
+function getSubmissionMessage(boards: SubmitLeaderboardEntryResponse["boards"]) {
+    const placements = (["daily", "weekly"] as const).flatMap((period) => {
+        const board = boards[period];
+        if (board.position === null) return [];
+        const label = period === "daily" ? "Daily" : "Weekly";
+        return `${label} (${formatPeriodStart(period, board.period_start)}) #${board.position}`;
+    });
+
+    if (placements.length === 0) {
+        return "The leaderboard changed before submission. Your score did not remain in either top 50.";
+    }
+    return `Score saved. ${placements.join(" · ")}.`;
+}
 
 export default function Results() {
     const location = useLocation();
@@ -22,28 +51,20 @@ export default function Results() {
     const submittedKey = sessionId ? `leaderboard_submitted_${sessionId}` : null;
 
     const [totalScore, setTotalScore] = useState<number>(0);
-    const [qualifies, setQualifies] = useState<boolean>(false);
-    const [position, setPosition] = useState<number | null>(null);
+    const [qualification, setQualification] = useState<LeaderboardQualificationResponse | null>(null);
     const [name, setName] = useState<string>("");
     const [submitted, setSubmitted] = useState<boolean>(
         () => submittedKey ? sessionStorage.getItem(submittedKey) === "true" : false
     );
+    const [placements, setPlacements] = useState<SubmitLeaderboardEntryResponse["boards"] | null>(null);
+    const [activePeriod, setActivePeriod] = useState<LeaderboardPeriod>("daily");
     const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+    const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(true);
     const navigate = useNavigate();
 
-    async function checkQualification(score: number) {
+    async function fetchLeaderboard(period: LeaderboardPeriod) {
         try {
-            const data = await getLeaderboardQualification(score);
-            setQualifies(data.qualifies);
-            setPosition(data.position);
-        } catch (err) {
-            console.error("Failed to check qualification:", err);
-        }
-    }
-
-    async function fetchLeaderboard() {
-        try {
-            const data = await getLeaderboard();
+            const data = await getLeaderboard(period);
             setLeaderboard(data);
         } catch (err) {
             console.error("Failed to fetch leaderboard:", err);
@@ -72,8 +93,17 @@ export default function Results() {
 
             if (!cancelled) {
                 setTotalScore(resolvedScore);
-                void checkQualification(resolvedScore);
-                void fetchLeaderboard();
+                if (leaderboardMode && sessionId) {
+                    try {
+                        const data = await getLeaderboardQualification(sessionId);
+                        if (!cancelled) {
+                            setQualification(data);
+                            if (data.submitted) setSubmitted(true);
+                        }
+                    } catch (err) {
+                        console.error("Failed to check qualification:", err);
+                    }
+                }
             }
         }
 
@@ -82,7 +112,24 @@ export default function Results() {
         return () => {
             cancelled = true;
         };
-    }, [routeState?.totalScore, sessionId]);
+    }, [routeState?.totalScore, sessionId, leaderboardMode]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        void getLeaderboard(activePeriod)
+            .then((data) => {
+                if (!cancelled) setLeaderboard(data);
+            })
+            .catch((err) => console.error("Failed to fetch leaderboard:", err))
+            .finally(() => {
+                if (!cancelled) setIsLeaderboardLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activePeriod]);
 
     async function handleSubmitName(e: React.FormEvent) {
         e.preventDefault();
@@ -90,10 +137,10 @@ export default function Results() {
 
         try {
             const result = await submitLeaderboardEntry(sessionId, name.trim());
-            setPosition(result.position);
+            setPlacements(result.boards);
             setSubmitted(true);
             if (submittedKey) sessionStorage.setItem(submittedKey, "true");
-            void fetchLeaderboard();
+            void fetchLeaderboard(activePeriod);
         } catch (err) {
             console.error("Failed to submit score:", err);
         }
@@ -137,9 +184,14 @@ export default function Results() {
                         <small>points</small>
                     </div>
 
-                    {leaderboardMode && sessionId && qualifies && !submitted && (
+                    {leaderboardMode && sessionId && qualification?.qualifies && !submitted && (
                         <div className="qualification-card">
-                            <p>You made the top 50.</p>
+                            <p>
+                                You made the {(["daily", "weekly"] as const)
+                                    .filter((period) => qualification.boards[period].qualifies)
+                                    .map((period) => period === "daily" ? "Daily" : "Weekly")
+                                    .join(" and ")} top 50.
+                            </p>
                             <form onSubmit={handleSubmitName}>
                                 <label className="visually-hidden" htmlFor="leaderboard-name">Leaderboard name</label>
                                 <input
@@ -164,16 +216,51 @@ export default function Results() {
                     <header>
                         <div>
                             <h2>Leaderboard</h2>
+                            <div className="leaderboard-period-tabs" role="tablist" aria-label="Leaderboard period">
+                                {(["daily", "weekly"] as const).map((period) => (
+                                    <button
+                                        key={period}
+                                        type="button"
+                                        role="tab"
+                                        id={`results-leaderboard-${period}-tab`}
+                                        aria-controls={`results-leaderboard-${period}-panel`}
+                                        aria-selected={activePeriod === period}
+                                        className={activePeriod === period ? "is-active" : ""}
+                                        onClick={() => {
+                                            if (period !== activePeriod) {
+                                                setIsLeaderboardLoading(true);
+                                                setLeaderboard([]);
+                                                setActivePeriod(period);
+                                            }
+                                        }}
+                                    >
+                                        {period === "daily" ? "Daily" : "Weekly"}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </header>
 
-                    {submitted && (
-                        <p className="submission-message">Score saved. You ranked #{position}.</p>
+                    {submitted && placements && (
+                        <p className="submission-message">{getSubmissionMessage(placements)}</p>
                     )}
 
-                    <div className="leaderboard-scroll">
-                        {leaderboard.length === 0 ? (
-                            <p className="empty-leaderboard">No scores yet. Be the first Spartan on the board.</p>
+                    <div
+                        id={`results-leaderboard-${activePeriod}-panel`}
+                        className="leaderboard-scroll"
+                        role="tabpanel"
+                        aria-labelledby={`results-leaderboard-${activePeriod}-tab`}
+                    >
+                        {isLeaderboardLoading ? (
+                            <p className="empty-leaderboard">Loading leaderboard…</p>
+                        ) : leaderboard.length === 0 ? (
+                            <div className="empty-leaderboard">
+                                <img className="empty-leaderboard-icon" src={Trophy} alt="" />
+                                <p className="empty-leaderboard-copy">
+                                    <strong>No scores yet.</strong>
+                                    <span>Be the first Spartan on the board.</span>
+                                </p>
+                            </div>
                         ) : (
                             <table>
                                 <thead>
