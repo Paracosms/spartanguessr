@@ -481,7 +481,7 @@ summary:focus-visible {
 }
 
 .about-logo {
-	width: min(100%, 350px);
+	width: min(100%, 400px);
 	height: auto;
 	margin-bottom: 0.4rem;
 }
@@ -493,14 +493,26 @@ summary:focus-visible {
 	line-height: 1.5;
 }
 
+.about-links {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.45rem;
+}
+
 .about-panel a {
 	color: var(--gold);
 	font-weight: 700;
 }
 
-.about-thanks strong {
+.about-section strong {
 	display: block;
 	margin-top: 0.2rem;
+}
+
+.about-contribute-section {
+	position: relative;
+	top: -0.8rem;
 }
 
 .about-team-list {
@@ -523,18 +535,52 @@ summary:focus-visible {
 	margin-top: 0;
 }
 
+.about-creator-stage {
+	position: relative;
+	display: grid;
+	width: min(100%, 250px);
+	height: 140px;
+	place-items: center;
+	margin: auto 0;
+	isolation: isolate;
+}
+
+.about-creator-spear {
+	position: absolute;
+	top: calc(25% + 15px);
+	left: calc(67% + 40px);
+	z-index: 1;
+	width: 125px;
+	height: auto;
+	filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.3));
+	transform: translate(-50%, -50%) rotate(212deg);
+}
+
 .about-creator {
+	position: relative;
+	z-index: 2;
 	display: flex;
-	width: min(100%, 180px);
+	width: min(100%, 140px);
 	aspect-ratio: 1;
 	align-items: center;
 	justify-content: center;
-	margin: auto 0;
 	border: 2px solid var(--gold);
 	border-radius: 50%;
+	background: #0a1b2b;
 	box-shadow: 0 0 0 5px rgba(255, 193, 8, 0.12), 0 12px 24px rgba(0, 0, 0, 0.35);
 	flex-direction: column;
 	gap: 0.3rem;
+}
+
+.about-creator-helmet {
+	position: absolute;
+	top: -25px;
+	left: 35px;
+	transform: rotate(-30deg);
+	z-index: 3;
+	width: 78px;
+	height: auto;
+	filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.35));
 }
 
 .about-creator span {
