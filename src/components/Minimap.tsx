@@ -22,6 +22,7 @@ type MinimapProps = {
     unlabeled: boolean;
     allowPinPlacement?: boolean;
     mapHeightPx?: number;
+    zoomRatio?: number;
     initialScale?: number;
     initialOffset?: Point; // starting pan position, defaults to INITIAL_MAP_POS
     minZoomFloor?: number;
@@ -60,6 +61,7 @@ export default function Minimap({
     unlabeled,
     allowPinPlacement = true,
     mapHeightPx,
+    zoomRatio = 1,
     initialScale = INITIAL_SCALE,
     initialOffset = INITIAL_MAP_POS,
     minZoomFloor,
@@ -75,11 +77,14 @@ export default function Minimap({
 }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
+    const scaledMinZoomFloor = (minZoomFloor ?? BASE_MIN_ZOOM) * zoomRatio;
+    const scaledMaxZoom = MAX_ZOOM * zoomRatio;
+    const scaledZoomSpeed = ZOOM_SPEED * zoomRatio;
     const [view, setView] = useState<ViewState>(() => ({
         scale: initialScale,
         offset: initialOffset,
     }));
-    const [minZoom, setMinZoom] = useState(minZoomFloor ?? BASE_MIN_ZOOM);
+    const [minZoom, setMinZoom] = useState(scaledMinZoomFloor);
     const [dragging, setDragging] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const { scale, offset } = view;
@@ -195,8 +200,8 @@ export default function Minimap({
         const { x: mouseX, y: mouseY } = getLocalPoint(container, e.clientX, e.clientY);
 
         setView((prev) => {
-            const zoomFactor = e.deltaY > 0 ? -ZOOM_SPEED : ZOOM_SPEED;
-            const nextScale = clamp(round(prev.scale + zoomFactor, 4), minZoom, MAX_ZOOM);
+            const zoomFactor = e.deltaY > 0 ? -scaledZoomSpeed : scaledZoomSpeed;
+            const nextScale = clamp(round(prev.scale + zoomFactor, 4), minZoom, scaledMaxZoom);
 
             // Avoid useless updates
             if (nextScale === prev.scale) return prev;
@@ -289,7 +294,7 @@ export default function Minimap({
             const nextScale = clamp(
                 pinch.startScale * (getDistance(first, second) / pinch.startDistance),
                 minZoom,
-                MAX_ZOOM
+                scaledMaxZoom
             );
             const nextView = {
                 scale: nextScale,
@@ -442,15 +447,13 @@ export default function Minimap({
             const width = container.clientWidth;
             const height = container.clientHeight;
             if (width <= 0 || height <= 0) return;
-            const nextMinZoom = minZoomFloor != null
-                ? Math.max(getFitMinZoom(width, height), minZoomFloor)
-                : getFitMinZoom(width, height);
+            const nextMinZoom = getFitMinZoom(width, height, scaledMinZoomFloor, scaledMaxZoom);
             setMinZoom(nextMinZoom);
 
             setView((prev) => {
                 const baseScale =
                     initializeScaleToMinZoom && !userAdjustedZoomRef.current ? nextMinZoom : prev.scale;
-                const nextScale = clamp(baseScale, nextMinZoom, MAX_ZOOM);
+                const nextScale = clamp(baseScale, nextMinZoom, scaledMaxZoom);
 
                 return {
                     scale: nextScale,
@@ -462,7 +465,7 @@ export default function Minimap({
         reclamp();
         window.addEventListener("resize", reclamp);
         return () => window.removeEventListener("resize", reclamp);
-    }, [minZoomFloor, initializeScaleToMinZoom, mapHeightPx]);
+    }, [initializeScaleToMinZoom, mapHeightPx, scaledMaxZoom, scaledMinZoomFloor]);
 
     // Prevent trackpad pinch-to-zoom on the minimap
     useEffect(() => {
@@ -611,9 +614,14 @@ function round(value: number, decimal_places: number): number {
     return Math.round(value * multiplier) / multiplier;
 }
 
-function getFitMinZoom(containerWidth: number, containerHeight: number): number {
+function getFitMinZoom(
+    containerWidth: number,
+    containerHeight: number,
+    minZoomFloor: number,
+    maxZoom: number,
+): number {
     const fitScale = Math.min(containerWidth / MINIMAP_WIDTH, containerHeight / MINIMAP_HEIGHT) * FIT_ZOOM_PADDING;
-    return round(clamp(fitScale, BASE_MIN_ZOOM, MAX_ZOOM), 3);
+    return round(clamp(fitScale, minZoomFloor, maxZoom), 3);
 }
 
 function getLocalPoint(container: HTMLDivElement, clientX: number, clientY: number): Point {

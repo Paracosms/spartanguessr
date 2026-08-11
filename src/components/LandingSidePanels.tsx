@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Minimap from "./Minimap.tsx";
 import { getLeaderboard } from "../utils/api.tsx";
 import type { LeaderboardEntry } from "../utils/api.tsx";
@@ -8,6 +8,14 @@ import HandGrabbing from "../assets/HandGrabbing.svg";
 import MouseScroll from "../assets/MouseScroll.svg";
 
 const RANK_COLORS: Record<number, string> = { 1: "#FFC108", 2: "#C0C0C0", 3: "#CD7F32" };
+const LANDING_MINIMAP_REFERENCE_SIZE_VH = 40;
+const LANDING_MINIMAP_SIZE_VH = 46; // Size of title-screen minimap.
+const LANDING_MINIMAP_ZOOM_RATIO = LANDING_MINIMAP_SIZE_VH / LANDING_MINIMAP_REFERENCE_SIZE_VH;
+const LANDING_MINIMAP_INITIAL_SCALE = 0.35 * LANDING_MINIMAP_ZOOM_RATIO;
+const LANDING_MINIMAP_INITIAL_OFFSET = {
+    x: -114 * LANDING_MINIMAP_ZOOM_RATIO,
+    y: -92 * LANDING_MINIMAP_ZOOM_RATIO,
+};
 
 function getRankLabel(rank: number) {
     const mod100 = rank % 100;
@@ -27,13 +35,19 @@ export function LandingMapPanel() {
             <header>
                 <h2>Controls</h2>
             </header>
-            <div className="landing-minimap-stage">
+            <div
+                className="landing-minimap-stage"
+                style={{
+                    "--landing-minimap-height": `${LANDING_MINIMAP_SIZE_VH}vh`,
+                } as CSSProperties}
+            >
                 <Minimap
                     pinPosition={pinPosition}
                     onPinChange={setPinPosition}
                     unlabeled={false}
-                    initialScale={0.35}
-                    initialOffset={{x: -114, y: -92}}
+                    zoomRatio={LANDING_MINIMAP_ZOOM_RATIO}
+                    initialScale={LANDING_MINIMAP_INITIAL_SCALE}
+                    initialOffset={LANDING_MINIMAP_INITIAL_OFFSET}
                 />
             </div>
             <div className="landing-map-instruction" aria-label="Map controls">

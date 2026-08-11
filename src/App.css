@@ -192,14 +192,31 @@ summary:focus-visible {
 
 .landing-map-panel {
 	align-items: stretch;
+	display: grid;
+	grid-template-rows: auto minmax(0, 2fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.landing-map-panel > header {
+	grid-row: 1;
+}
+
+.landing-map-panel > .landing-minimap-stage {
+	grid-row: 3;
+}
+
+.landing-map-panel > .landing-map-instruction {
+	grid-row: 5;
 }
 
 .landing-minimap-stage {
 	display: grid;
 	min-height: 0;
-	flex: 1;
 	place-items: center;
-	padding: 0.65rem 1rem;
+	padding: 0 1rem;
+}
+
+.landing-minimap-stage > .minimap-shell {
+	height: var(--landing-minimap-height) !important;
 }
 
 .landing-leaderboard-panel > header,
