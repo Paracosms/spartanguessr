@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { LandingLeaderboardPanel } from "./LandingSidePanels.tsx";
 import SettingsMenu from "./SettingsMenu.tsx";
@@ -61,6 +61,8 @@ export default function LandingCenterPanel() {
     const [showLeaderboardTab, setShowLeaderboardTab] = useState(() =>
         window.matchMedia(COMPACT_LANDING_QUERY).matches
     );
+    const [playPanelHeight, setPlayPanelHeight] = useState<number | null>(null);
+    const playPanelRef = useRef<HTMLDivElement | null>(null);
     const [isStarting, setIsStarting] = useState(false);
     const [formData, setFormData] = useState<GameFormData>({
         difficulty: 2, // 1: easy, 2: medium, 3: hard
@@ -88,6 +90,23 @@ export default function LandingCenterPanel() {
         mediaQuery.addEventListener("change", handleChange);
         return () => mediaQuery.removeEventListener("change", handleChange);
     }, []);
+
+    useEffect(() => {
+        if (activePage !== "settings") return;
+
+        const playPanel = playPanelRef.current;
+        if (!playPanel) return;
+
+        const updatePlayPanelHeight = () => {
+            setPlayPanelHeight(playPanel.getBoundingClientRect().height);
+        };
+
+        updatePlayPanelHeight();
+        const resizeObserver = new ResizeObserver(updatePlayPanelHeight);
+        resizeObserver.observe(playPanel);
+
+        return () => resizeObserver.disconnect();
+    }, [activePage]);
 
     function handleDifficultyChange(nextDifficulty: string) {
         const normalized = (nextDifficulty as DifficultyLabel) || "Easy";
@@ -186,7 +205,12 @@ export default function LandingCenterPanel() {
     }
 
     return (
-        <div className="landing-card-shell">
+        <div
+            className="landing-card-shell"
+            style={playPanelHeight === null
+                ? undefined
+                : ({ "--landing-play-panel-height": `${playPanelHeight}px` } as CSSProperties)}
+        >
             <div className="landing-tabs" role="tablist" aria-label="Landing pages">
                 <button
                     className={`landing-tab${activePage === "settings" ? " is-active" : ""}`}
@@ -239,6 +263,7 @@ export default function LandingCenterPanel() {
             {activePage === "settings" ? (
                 <div
                     className="start-card"
+                    ref={playPanelRef}
                     id="landing-panel"
                     role="tabpanel"
                     aria-labelledby="landing-tab-settings"

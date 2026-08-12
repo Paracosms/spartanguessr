@@ -1938,6 +1938,10 @@ summary:focus-visible {
 	.landing-leaderboard-tab-panel {
 		height: auto;
 	}
+
+	.landing-leaderboard-tab-panel {
+		min-height: var(--landing-play-panel-height, var(--landing-card-body-height));
+	}
 }
 
 @media (max-width: 899px) {
