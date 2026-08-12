@@ -18,21 +18,12 @@ import type {
 } from "../utils/api.tsx";
 import { getRankLabel, RANK_COLORS } from "../utils/leaderboard.ts";
 
-function formatPeriodStart(period: LeaderboardPeriod, periodStart: string) {
-    const formattedDate = new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        timeZone: "UTC",
-    }).format(new Date(`${periodStart}T12:00:00Z`));
-    return period === "daily" ? formattedDate : `week of ${formattedDate}`;
-}
-
 function getSubmissionMessage(boards: SubmitLeaderboardEntryResponse["boards"]) {
     const placements = (["daily", "weekly"] as const).flatMap((period) => {
         const board = boards[period];
         if (board.position === null) return [];
         const label = period === "daily" ? "Daily" : "Weekly";
-        return `${label} (${formatPeriodStart(period, board.period_start)}) #${board.position}`;
+        return `${label} #${board.position}`;
     });
 
     if (placements.length === 0) {

@@ -33,8 +33,6 @@ type MinimapProps = {
     heatmapPoints?: Point[];
     heatmapDotSize?: number;
     onTouchTap?: () => void;
-    onTouchEdgeTap?: () => void;
-    touchEdgeInsetPx?: number;
 };
 // Constants you might want to tweak
 const INITIAL_MAP_POS = {x: -2100, y: -2300}
@@ -72,8 +70,6 @@ export default function Minimap({
     heatmapPoints = [],
     heatmapDotSize = 10,
     onTouchTap,
-    onTouchEdgeTap,
-    touchEdgeInsetPx = 24,
 }: MinimapProps) {
     // Don't tweak
     const ASPECT_RATIO = MINIMAP_WIDTH/MINIMAP_HEIGHT;
@@ -341,10 +337,7 @@ export default function Minimap({
         ignoreMouseClickUntilRef.current = Date.now() + TOUCH_CLICK_SUPPRESSION_MS;
 
         if (isTap) {
-            const container = e.currentTarget;
-            if (onTouchEdgeTap && isWithinEdge(container, e.clientX, e.clientY, touchEdgeInsetPx)) {
-                onTouchEdgeTap();
-            } else if (onTouchTap) {
+            if (onTouchTap) {
                 onTouchTap();
             } else {
                 placePin(e.clientX, e.clientY);
@@ -644,20 +637,6 @@ function getMidpoint(first: Point, second: Point): Point {
 
 function getDistance(first: Point, second: Point): number {
     return Math.hypot(second.x - first.x, second.y - first.y);
-}
-
-function isWithinEdge(
-    container: HTMLDivElement,
-    clientX: number,
-    clientY: number,
-    edgeInsetPx: number
-): boolean {
-    const rect = container.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const inset = Math.min(edgeInsetPx, rect.width / 2, rect.height / 2);
-
-    return x <= inset || x >= rect.width - inset || y <= inset || y >= rect.height - inset;
 }
 
 // top 1 clamp function

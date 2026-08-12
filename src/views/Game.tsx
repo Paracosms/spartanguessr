@@ -49,6 +49,7 @@ export default function Game() {
     const [roundDeadlineAt, setRoundDeadlineAt] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
     const expiredDeadlineRef = useRef<number | null>(null);
+    const minimapStageRef = useRef<HTMLDivElement>(null);
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
     const [minimapTouchExpanded, setMinimapTouchExpanded] = useState(false);
     const [viewport, setViewport] = useState(getViewportState);
@@ -269,7 +270,18 @@ export default function Game() {
     }, []);
 
     return (
-        <main className="game-page">
+        <main
+            className="game-page"
+            onPointerDown={(e) => {
+                if (
+                    minimapTouchExpanded &&
+                    e.pointerType === "touch" &&
+                    !minimapStageRef.current?.contains(e.target as Node)
+                ) {
+                    setMinimapTouchExpanded(false);
+                }
+            }}
+        >
             {roundImageUrl ? (
                 <>
                     <div
@@ -326,6 +338,7 @@ export default function Game() {
 
             <section className={`game-map-dock${minimapExpanded ? " is-expanded" : ""}`}>
                 <div
+                    ref={minimapStageRef}
                     className="game-minimap-stage"
                     onPointerEnter={(e) => {
                         if (e.pointerType === "mouse") setMinimapHovered(true);
@@ -346,7 +359,6 @@ export default function Game() {
                         initialScale={GAME_MINIMAP_INITIAL_SCALE}
                         initialOffset={GAME_MINIMAP_INITIAL_OFFSET}
                         onTouchTap={minimapTouchExpanded ? undefined : () => setMinimapTouchExpanded(true)}
-                        onTouchEdgeTap={minimapTouchExpanded ? () => setMinimapTouchExpanded(false) : undefined}
                     />
                 </div>
 
