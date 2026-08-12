@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Minimap from "../components/Minimap";
 import GuessButton from "../components/GuessButton";
 import Logo from "../assets/SpartanguessrLogo.png";
 import Spear from "../assets/icons/WebIcon.png";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { ApiDifficulty, GameRouteState, Point } from "../utils/types";
-import { ApiError, getRandomImage } from "../utils/api.tsx";
+import { ApiError, getRandomImage, startRound } from "../utils/api.tsx";
 import { loadRoundImage } from "../utils/preloadGameAssets.tsx";
 import { addPlaytime, recordImageSeen } from "../utils/stats.ts";
 const GAME_MINIMAP_HEIGHT_MIN_PX = 378; // minimum height, keeps it usable on small viewports
@@ -46,7 +46,9 @@ export default function Game() {
     const [roundImageId, setRoundImageId] = useState<string | null>(null);
     const [roundDifficulty, setRoundDifficulty] = useState<ApiDifficulty | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+    const [roundDeadlineAt, setRoundDeadlineAt] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
+    const expiredDeadlineRef = useRef<number | null>(null);
     const [minimapHovered, setMinimapHovered] = useState(false); // shrink minimap when not hovered
     const [minimapTouchExpanded, setMinimapTouchExpanded] = useState(false);
     const [viewport, setViewport] = useState(getViewportState);
@@ -108,8 +110,6 @@ export default function Game() {
     const timerLength = gameState?.timerLength ?? "none";
     const seed = (gameState?.seed ?? "").trim();
     const leaderboardMode = gameState?.leaderboardMode ?? false;
-    const timerSeconds = timerLength === "none" ? null : Number.parseInt(timerLength, 10);
-    const roundTimerSeconds = Number.isFinite(timerSeconds) && timerSeconds != null && timerSeconds > 0 ? timerSeconds : null;
     const gameNavigationState: NonNullable<GameRouteState> = {
         sessionId: sessionId ?? undefined,
         expectedRound,
@@ -149,11 +149,16 @@ export default function Game() {
                 return;
             }
 
+            const roundStart = await startRound(sessionId, roundImage.round_number);
+
             setRoundImageUrl(roundImage.image_url);
             setRoundImageId(roundImage.image_id);
             setRoundDifficulty(roundImage.difficulty);
             setRoundNumber(roundImage.round_number);
-            setTimeRemaining(roundTimerSeconds);
+            setRoundDeadlineAt(roundStart.round_deadline_at);
+            setTimeRemaining(roundStart.round_deadline_at == null
+                ? null
+                : Math.max(0, Math.ceil(roundStart.round_deadline_at - Date.now() / 1000)));
         } catch (err) {
             if (err instanceof ApiError && err.status === 404) {
                 navigate("/", { replace: true });
@@ -161,7 +166,7 @@ export default function Game() {
             }
             console.error("FAIL", err);
         }
-    }, [expectedRound, navigate, roundTimerSeconds, sessionId]);
+    }, [expectedRound, navigate, sessionId]);
 
     useEffect(() => {
         if (!sessionId) {
@@ -223,30 +228,36 @@ export default function Game() {
     }, []);
 
     useEffect(() => {
-        if (roundTimerSeconds == null || !roundImageUrl) {
+        if (roundDeadlineAt == null || !roundImageUrl) {
             return;
         }
 
-        const intervalId = window.setInterval(() => {
-            setTimeRemaining((previousTime) => {
-                if (previousTime == null) {
-                    return previousTime;
-                }
-
-                if (previousTime <= 1) {
+        let intervalId: number | null = null;
+        const updateTimer = () => {
+            const remaining = Math.max(0, Math.ceil(roundDeadlineAt - Date.now() / 1000));
+            setTimeRemaining(remaining);
+            if (remaining === 0) {
+                if (intervalId != null) {
                     window.clearInterval(intervalId);
-                    setAutoSubmitSignal((signal) => signal + 1);
-                    return 0;
                 }
+                if (expiredDeadlineRef.current !== roundDeadlineAt) {
+                    expiredDeadlineRef.current = roundDeadlineAt;
+                    setAutoSubmitSignal((signal) => signal + 1);
+                }
+            }
+        };
 
-                return previousTime - 1;
-            });
-        }, 1000);
+        updateTimer();
+        if (roundDeadlineAt > Date.now() / 1000) {
+            intervalId = window.setInterval(updateTimer, 1000);
+        }
 
         return () => {
-            window.clearInterval(intervalId);
+            if (intervalId != null) {
+                window.clearInterval(intervalId);
+            }
         };
-    }, [roundImageUrl, roundNumber, roundTimerSeconds]);
+    }, [roundDeadlineAt, roundImageUrl]);
 
     // update minimap height on resize
     useEffect(() => {

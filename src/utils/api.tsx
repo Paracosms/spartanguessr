@@ -9,6 +9,7 @@ export type CreateSessionRequest = {
     outside_only: boolean;
     seed?: string;
     leaderboard_mode: boolean;
+    timer_seconds: number | null;
 };
 
 export type CreateSessionResponse = {
@@ -18,9 +19,16 @@ export type CreateSessionResponse = {
     current_round: number;
     outside_only: boolean;
     leaderboard_mode: boolean;
+    timer_seconds: number | null;
     total_score: number;
     created_at: string;
     seed?: string;
+};
+
+export type StartRoundResponse = {
+    round_number: number;
+    timer_seconds: number | null;
+    round_deadline_at: number | null;
 };
 
 export type RandomImageResponse =
@@ -184,6 +192,14 @@ function postJson<T>(path: string, body: unknown, signal?: AbortSignal) {
 
 export function createSession(body: CreateSessionRequest, signal?: AbortSignal) {
     return postJson<CreateSessionResponse>("/session", body, signal);
+}
+
+export function startRound(sessionId: string, roundNumber: number, signal?: AbortSignal) {
+    return postJson<StartRoundResponse>(
+        `/session/${encodeURIComponent(sessionId)}/round/start`,
+        { round_number: roundNumber },
+        signal,
+    );
 }
 
 export function getRandomImage(sessionId: string, signal?: AbortSignal) {

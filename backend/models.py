@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 
 class GameSession:
     # session properties
-    def __init__(self, session_id, difficulty, max_rounds, outside_only=False, seed="", leaderboard_mode=False):
+    def __init__(self, session_id, difficulty, max_rounds, outside_only=False, seed="", leaderboard_mode=False, timer_seconds=None):
         self.session_id = session_id
         self.difficulty = difficulty
         self.max_rounds = max_rounds
@@ -16,6 +16,8 @@ class GameSession:
         self.outside_only = outside_only
         self.seed = seed
         self.leaderboard_mode = leaderboard_mode
+        self.timer_seconds = timer_seconds
+        self.round_deadline_at = None
         self.current_image_id = None
         self.total_score = 0
         self.leaderboard_submitted = False
@@ -32,6 +34,8 @@ class GameSession:
             "outside_only": "true" if self.outside_only else "false",
             "seed": self.seed,
             "leaderboard_mode": "true" if self.leaderboard_mode else "false",
+            "timer_seconds": "" if self.timer_seconds is None else str(self.timer_seconds),
+            "round_deadline_at": "" if self.round_deadline_at is None else str(self.round_deadline_at),
             "current_image_id": self.current_image_id or "",
             "total_score": str(self.total_score),
             "leaderboard_submitted": "true" if self.leaderboard_submitted else "false",
@@ -51,8 +55,10 @@ class GameSession:
             data.get("outside_only", "false") == "true",
             data.get("seed", ""),
             data.get("leaderboard_mode", "false") == "true",
+            int(data["timer_seconds"]) if data.get("timer_seconds") else None,
         )
         session.current_round = int(data.get("current_round", 1))
+        session.round_deadline_at = float(data["round_deadline_at"]) if data.get("round_deadline_at") else None
         session.current_image_id = data.get("current_image_id") or None
         session.total_score = int(data.get("total_score", 0))
         session.leaderboard_submitted = data.get("leaderboard_submitted", "false") == "true"

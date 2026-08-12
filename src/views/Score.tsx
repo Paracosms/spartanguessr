@@ -4,6 +4,8 @@ import Minimap from "../components/Minimap";
 import Logo from "../assets/SpartanguessrLogo.png";
 import Pin from "../assets/maps/Pin.png";
 import type { ScoreRouteState } from "../utils/types";
+import { ApiError, startRound } from "../utils/api.tsx";
+import { preloadNextRoundImage } from "../utils/preloadGameAssets.tsx";
 const SCORE_MINIMAP_HEIGHT_VH = 0.58;
 const SCORE_MINIMAP_ASPECT_RATIO = 1428 / 1503;
 const SCORE_VIEWPORT_GUTTER_PX = 16;
@@ -58,6 +60,7 @@ export default function Score() {
 	const resultsState = routeState?.resultsState;
 	const nextRoundNumber = routeState?.next_round_number;
 	const [viewport, setViewport] = useState(getViewportState);
+	const [isStartingRound, setIsStartingRound] = useState(false);
 	const minimapHeightPx = computeMinimapHeight(viewport);
 	const minimapWidthPx = Math.round(minimapHeightPx * SCORE_MINIMAP_ASPECT_RATIO);
 
@@ -82,7 +85,7 @@ export default function Score() {
 		return null;
 	}
 
-	function handleContinue() {
+	async function handleContinue() {
 		if (isGameComplete) {
 			navigate("/results", {
 				state: {
@@ -93,13 +96,26 @@ export default function Score() {
 			});
 			return;
 		}
+		if (!gameState?.sessionId || nextRoundNumber == null || isStartingRound) {
+			return;
+		}
 
-		navigate("/game", {
-			state: {
-				...gameState,
-				expectedRound: nextRoundNumber,
-			},
-		});
+		try {
+			setIsStartingRound(true);
+			await preloadNextRoundImage(gameState.sessionId, nextRoundNumber);
+			await startRound(gameState.sessionId, nextRoundNumber);
+			navigate("/game", {
+				state: {
+					...gameState,
+					expectedRound: nextRoundNumber,
+				},
+			});
+		} catch (err) {
+			console.error("FAIL", err);
+			alert(err instanceof ApiError ? err.message : "Unable to start the next round. Please try again.");
+		} finally {
+			setIsStartingRound(false);
+		}
 	}
 
 	return (
@@ -154,8 +170,8 @@ export default function Score() {
 							<strong>{routeState.round_number} / {gameState?.roundCount ?? routeState.round_number}</strong>
 						</div>
 
-						<button type="button" className="primary-action score-continue" onClick={handleContinue}>
-							<span>{isGameComplete ? "Finish game" : "Next round"}</span>
+						<button type="button" className="primary-action score-continue" onClick={() => void handleContinue()} disabled={isStartingRound}>
+							<span>{isStartingRound ? "Starting…" : isGameComplete ? "Finish game" : "Next round"}</span>
 							<span aria-hidden="true">→</span>
 						</button>
 					</div>

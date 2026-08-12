@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LandingLeaderboardPanel } from "./LandingSidePanels.tsx";
 import SettingsMenu from "./SettingsMenu.tsx";
-import { preloadGameAssets } from "../utils/preloadGameAssets.tsx";
-import { ApiError, createSession } from "../utils/api.tsx";
+import { preloadGameAssets, preloadNextRoundImage } from "../utils/preloadGameAssets.tsx";
+import { ApiError, createSession, startRound } from "../utils/api.tsx";
 import type { ApiDifficulty, GameRouteState } from "../utils/types";
 import { recordGameStarted } from "../utils/stats.ts";
 import StatsPanel from "./StatsPanel.tsx";
@@ -148,6 +148,9 @@ export default function LandingCenterPanel() {
                 : formData;
 
             const normalizedSeed = effectiveSettings.seed.trim() || generateRandomSeed();
+            const parsedTimerSeconds = effectiveSettings.timer_length === "none"
+                ? null
+                : Number.parseInt(effectiveSettings.timer_length, 10);
 
             const result = await createSession({
                 difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
@@ -155,8 +158,11 @@ export default function LandingCenterPanel() {
                 outside_only: effectiveSettings.outside_only,
                 ...(!effectiveSettings.leaderboard_mode && { seed: normalizedSeed }),
                 leaderboard_mode: effectiveSettings.leaderboard_mode,
+                timer_seconds: parsedTimerSeconds,
             });
             recordGameStarted(result.session_id);
+            await preloadNextRoundImage(result.session_id, result.current_round);
+            await startRound(result.session_id, result.current_round);
 
             const gameRouteState: NonNullable<GameRouteState> = {
                 sessionId: result.session_id,

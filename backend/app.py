@@ -29,6 +29,8 @@ CORS(app, origins=[
 redis = Redis.from_env()
 
 MAX_LEADERBOARD_SIZE = 50
+ALLOWED_TIMER_SECONDS = (30, 60, 120)
+TIMEOUT_COORDINATE = 99999
 LEADERBOARD_PERIODS = ("daily", "weekly")
 PACIFIC_TIMEZONE = ZoneInfo("America/Los_Angeles")
 MAX_MEMBER_TIMESTAMP_MICROSECONDS = 99_999_999_999_999_999_999
@@ -365,7 +367,46 @@ def random_image():
         }), 200
     finally:
         release_session_lock(session_id, lock_token)
-    
+
+
+# POST /session/<session_id>/round/start
+# Start the current round timer once, or return its existing deadline.
+@app.route("/session/<session_id>/round/start", methods=["POST"])
+def start_round(session_id):
+    data = request.get_json(silent=True) or {}
+    round_number = data.get("round_number")
+    if not isinstance(round_number, int) or isinstance(round_number, bool):
+        return jsonify({"error": "round_number must be an integer."}), 400
+
+    lock_token = acquire_session_lock(session_id)
+    if not lock_token:
+        return jsonify({"error": "Session is busy. Retry starting the round."}), 409
+
+    try:
+        session = load_session(session_id)
+        if not session:
+            return jsonify({"error": "Session not found."}), 404
+        if session.current_round > session.max_rounds:
+            return jsonify({"error": "Game is already complete."}), 409
+        if round_number != session.current_round:
+            return jsonify({
+                "error": "Round out of sync. Please refresh the page or restart the game.",
+                "expected_round": session.current_round,
+            }), 409
+
+        if session.timer_seconds is not None and session.round_deadline_at is None:
+            session.round_deadline_at = time.time() + session.timer_seconds
+            save_session(session)
+
+        return jsonify({
+            "round_number": session.current_round,
+            "timer_seconds": session.timer_seconds,
+            "round_deadline_at": session.round_deadline_at,
+        }), 200
+    finally:
+        release_session_lock(session_id, lock_token)
+
+
 # POST /session
 # Start a new game session
 # Body: { "difficulty": "medium", "max_rounds": 5, "outside_only": false }
@@ -379,17 +420,25 @@ def create_session():
     difficulty = data.get("difficulty", "medium")
     max_rounds = data.get("max_rounds", 5)
     outside_only = parse_bool(data.get("outside_only", False), default=False)
+    timer_seconds = data.get("timer_seconds")
     seed = secrets.token_hex(32) if leaderboard_mode else str(data.get("seed", "")).strip()
 
     if leaderboard_mode:
         difficulty = "hard"
         max_rounds = 5
         outside_only = False
+        timer_seconds = 30
 
     if difficulty not in ("easy", "medium", "hard"):
         return jsonify({"error": "Invalid difficulty."}), 400
     if not isinstance(max_rounds, int) or not (1 <= max_rounds <= 10):
         return jsonify({"error": "max_rounds must be an integer within the expected range."}), 400
+    if timer_seconds is not None and (
+        not isinstance(timer_seconds, int)
+        or isinstance(timer_seconds, bool)
+        or timer_seconds not in ALLOWED_TIMER_SECONDS
+    ):
+        return jsonify({"error": "timer_seconds must be one of 30, 60, 120, or null."}), 400
 
     try:
         session_id = None
@@ -408,6 +457,7 @@ def create_session():
             outside_only,
             seed=seed,
             leaderboard_mode=leaderboard_mode,
+            timer_seconds=timer_seconds,
         )
         save_session(session)
     except RuntimeError as err:
@@ -424,6 +474,7 @@ def create_session():
         "current_round": session.current_round,
         "outside_only": session.outside_only,
         "leaderboard_mode": session.leaderboard_mode,
+        "timer_seconds": session.timer_seconds,
         "total_score": session.total_score,
         "created_at": session.created_at,
     }
@@ -447,6 +498,8 @@ def get_session_state(session_id):
         "current_round": session.current_round,
         "outside_only": session.outside_only,
         "leaderboard_mode": session.leaderboard_mode,
+        "timer_seconds": session.timer_seconds,
+        "round_deadline_at": session.round_deadline_at,
         "image_url": build_image_url(session.current_image_id) if session.current_image_id else None,
         "total_score": session.total_score,
         "created_at": session.created_at,
@@ -489,6 +542,8 @@ def submit_guess():
 
         if not session.current_image_id:
             return jsonify({"error": "No active round image. Request a round image first."}), 409
+        if session.timer_seconds is not None and session.round_deadline_at is None:
+            return jsonify({"error": "Round timer has not started."}), 409
 
         image_id = session.current_image_id
         image_record = image_by_id.get(image_id)
@@ -501,6 +556,10 @@ def submit_guess():
 
         if guess_lat is None or guess_lng is None:
             return jsonify({"error": "Missing coordinates"}), 400
+
+        if session.round_deadline_at is not None and time.time() >= session.round_deadline_at:
+            guess_lat = TIMEOUT_COORDINATE
+            guess_lng = TIMEOUT_COORDINATE
 
         # Calculate distance and score
         score, distance_meters = score_algorithm(
@@ -530,6 +589,7 @@ def submit_guess():
             if session.completed_at is None:
                 session.completed_at = datetime.now(UTC).isoformat()
         session.current_image_id = None
+        session.round_deadline_at = None
         save_session(session)
 
         return jsonify({
