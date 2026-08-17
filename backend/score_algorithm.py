@@ -20,6 +20,3 @@ def score_algorithm(guess_point, correct_point):
     if (score > 4970): # also have to adjust perfect score pass based on exponent above
         score = 5000
     return round(score), distance
-
-# print(score_algorithm([0,0], [0,0]))
-# ^ just for debugging

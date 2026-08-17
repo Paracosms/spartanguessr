@@ -175,7 +175,7 @@ class TestSessionTTL:
         assert "ex" in kwargs, "redis.set must include ex= for TTL"
         assert kwargs["ex"] == flask_app.SESSION_TTL_SECONDS
 
-    def test_session_ttl_value_is_24_hours(self, app):
+    def test_session_ttl_value_is_one_hour(self, app):
         """SESSION_TTL_SECONDS should be exactly 3600 (1 hour)."""
         _, flask_app, _ = app
         assert flask_app.SESSION_TTL_SECONDS == 3600
@@ -433,14 +433,7 @@ class TestLeaderboardQualify:
         assert res.status_code == 200
         assert data["qualifies"] is False
 
-    def test_score_fallback_remains_available_during_rollout(self, client, app):
-        _, _, mock_redis = app
-        mock_redis.zcard.return_value = 10
-        res = client.get("/leaderboard/qualify?score=1000")
-        assert res.status_code == 200
-        assert res.get_json()["qualifies"] is True
-
-    def test_qualify_missing_session_and_score(self, client):
+    def test_qualify_missing_session_id(self, client):
         res = client.get("/leaderboard/qualify")
         assert res.status_code == 400
 

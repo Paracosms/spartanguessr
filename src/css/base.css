@@ -1,0 +1,81 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap");
+
+:root {
+	color: #f7f4ea;
+	--app-font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-family: var(--app-font-family);
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	--blue: #1176B9;
+	--gold: #FFC108;
+	--navy-950: #02070d;
+	--navy-900: #071524;
+	--navy-800: #0c2134;
+	--cream: #f7f4ea;
+	--muted: rgba(247, 244, 234, 0.68);
+	--glass: rgba(7, 21, 36, 0.82);
+	--glass-light: rgba(255, 255, 255, 0.08);
+	--line: rgba(255, 255, 255, 0.13);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	overflow-x: hidden;
+	background: var(--navy-950);
+}
+
+body {
+	margin: 0;
+	min-width: 320px;
+	min-height: 100vh;
+	background: var(--navy-950);
+	color: var(--cream);
+	font-family: var(--app-font-family);
+}
+
+button,
+input,
+select {
+	font: inherit;
+}
+
+button {
+	-webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+	outline: 3px solid var(--gold);
+	outline-offset: 3px;
+}
+
+#root {
+	min-height: 100vh;
+}
+
+.eyebrow {
+	margin: 0;
+	color: var(--gold);
+	font-size: 0.72rem;
+	font-weight: 900;
+	letter-spacing: 0.2em;
+	text-transform: uppercase;
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+	}
+}
+

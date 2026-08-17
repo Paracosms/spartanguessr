@@ -1,0 +1,58 @@
+/* Panels */
+
+.heatmap-controls,
+.map-panel {
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	background: var(--glass);
+	box-shadow: 0 16px 38px rgba(0, 0, 0, 0.36);
+	backdrop-filter: blur(16px);
+}
+
+.landing-side-panel,
+.landing-card-shell,
+.map-explanation-panel {
+	overflow: hidden;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	border-radius: 14px;
+	background: rgba(7, 21, 36, 0.88);
+	box-shadow: 0 22px 56px rgba(0, 0, 0, 0.42);
+	backdrop-filter: blur(20px) saturate(120%);
+}
+
+.landing-leaderboard-panel > header,
+.landing-map-panel > header,
+.map-explanation-panel > header {
+	padding: 1rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	text-align: center;
+}
+
+.landing-leaderboard-panel > header {
+	display: flex;
+	min-height: 64px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0 1rem;
+	text-align: left;
+}
+
+.landing-leaderboard-panel h2,
+.landing-map-panel h2,
+.map-explanation-panel h2 {
+	margin: 0;
+	color: #fff;
+	font-size: 1.15rem;
+	font-weight: 900;
+}
+
+/* Minimap */
+
+.minimap-shell {
+	border: 3px solid rgba(255, 193, 8, 0.9);
+	border-radius: 16px;
+	background: var(--navy-900);
+	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+

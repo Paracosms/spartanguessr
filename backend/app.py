@@ -230,16 +230,12 @@ def release_session_lock(session_id, lock_token):
 
 # save the session JSON with the configured ttl
 def save_session(session):
-    if redis is None:
-        raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session.session_id}"
     session_json = json.dumps(session.to_dict())
     redis.set(key, session_json, ex=SESSION_TTL_SECONDS)
 
 # load a session JSON blob from redis
 def load_session(session_id):
-    if redis is None:
-        raise RuntimeError("Session backend is not configured. Missing Redis environment variables.")
     key = f"session:{session_id}"
     raw = redis.get(key)
     if not raw:
@@ -669,28 +665,24 @@ def get_leaderboard():
 @app.route("/leaderboard/qualify")
 def check_qualify():
     session_id = request.args.get("session_id", "").strip()
+    if not session_id:
+        return jsonify({"error": "session_id is required."}), 400
+
     submitted = False
     member = None
 
-    if session_id:
-        session = load_session(session_id)
-        if not session:
-            return jsonify({"error": "Session not found."}), 404
-        if not session.leaderboard_mode:
-            return jsonify({"error": "Only Ranked sessions can qualify for the leaderboard."}), 400
-        if session.current_round <= session.max_rounds or not session.completed_at:
-            return jsonify({"error": "Game must be complete before checking leaderboard qualification."}), 409
+    session = load_session(session_id)
+    if not session:
+        return jsonify({"error": "Session not found."}), 404
+    if not session.leaderboard_mode:
+        return jsonify({"error": "Only Ranked sessions can qualify for the leaderboard."}), 400
+    if session.current_round <= session.max_rounds or not session.completed_at:
+        return jsonify({"error": "Game must be complete before checking leaderboard qualification."}), 409
 
-        score = session.total_score
-        submitted = session.leaderboard_submitted
-        periods = get_leaderboard_periods(session.completed_at)
-        member = encode_leaderboard_member(session.session_id, "", session.completed_at)
-    else:
-        # Temporary compatibility for the previous frontend during backend-first rollout.
-        score = request.args.get("score", type=int)
-        if score is None:
-            return jsonify({"error": "session_id is required."}), 400
-        periods = get_leaderboard_periods(datetime.now(UTC))
+    score = session.total_score
+    submitted = session.leaderboard_submitted
+    periods = get_leaderboard_periods(session.completed_at)
+    member = encode_leaderboard_member(session.session_id, "", session.completed_at)
 
     boards = get_qualification_boards(score, periods, member)
     qualifies = any(board["qualifies"] for board in boards.values())

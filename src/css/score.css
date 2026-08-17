@@ -1,0 +1,177 @@
+/* Round score */
+
+.score-page {
+	position: relative;
+	isolation: isolate;
+	display: grid;
+	min-height: 100dvh;
+	place-items: center;
+	overflow: hidden auto;
+	background: var(--navy-950);
+}
+
+.score-background,
+.results-background {
+	position: fixed;
+	inset: 0;
+	z-index: -3;
+	background-position: center;
+	background-size: cover;
+	filter: blur(15px) saturate(0.85);
+}
+
+.score-overlay,
+.results-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: -2;
+	background:
+		radial-gradient(circle at 28% 48%, rgba(17, 118, 185, 0.18), transparent 38%),
+		linear-gradient(110deg, rgba(2, 7, 13, 0.9), rgba(2, 7, 13, 0.72));
+}
+
+.score-brand {
+	position: absolute;
+	top: 1rem;
+	left: 1rem;
+	z-index: 2;
+}
+
+.score-layout {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	grid-template-columns: 1fr;
+	justify-items: center;
+	align-items: start;
+	gap: clamp(0.8rem, 2vw, 1.5rem);
+	width: min(100% - 2rem, 900px);
+	margin: 0 auto;
+	padding: 4.5rem 0 1.5rem;
+}
+
+.score-map-panel {
+	display: flex;
+	min-width: 0;
+	align-items: stretch;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.panel-label {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.panel-label > span {
+	font-size: 0.7rem;
+	font-weight: 900;
+	letter-spacing: 0.15em;
+	text-transform: uppercase;
+}
+
+.panel-label small {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	color: var(--muted);
+	font-size: 0.62rem;
+	white-space: nowrap;
+}
+
+.panel-pin-icon {
+	display: block;
+	width: 0.42rem;
+	height: 1rem;
+	object-fit: contain;
+}
+
+.panel-label small i {
+	width: 8px;
+	height: 8px;
+	border: 2px solid #fff;
+	border-radius: 50%;
+	background: #ff3b30;
+}
+
+.score-card {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 1px minmax(220px, 0.8fr);
+	align-items: center;
+	gap: clamp(1rem, 3vw, 2.25rem);
+	width: min(100%, 760px);
+	padding: clamp(1.1rem, 2.5vw, 1.8rem);
+	border: 1px solid var(--line);
+	border-radius: 24px;
+	background: var(--glass);
+	box-shadow: 0 30px 70px rgba(0, 0, 0, 0.42);
+	backdrop-filter: blur(20px);
+}
+
+.score-card-primary,
+.score-card-secondary {
+	min-width: 0;
+}
+
+.score-card-divider {
+	align-self: stretch;
+	background: var(--line);
+}
+
+.round-score {
+	display: flex;
+	align-items: flex-end;
+	gap: 0.55rem;
+	margin: 0.8rem 0 1rem;
+}
+
+.round-score strong,
+.final-score strong {
+	color: #fff;
+	font-family: var(--app-font-family);
+	font-size: clamp(4.2rem, 7vw, 6.75rem);
+	font-style: italic;
+	font-weight: 900;
+	letter-spacing: -0.03em;
+	line-height: 0.85;
+	text-shadow: 4px 4px var(--blue);
+}
+
+.round-score span {
+	padding-bottom: 0.5rem;
+	color: var(--gold);
+	font-size: 0.78rem;
+	font-weight: 900;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.round-progress {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 1.35rem 0;
+	padding: 0.85rem 0;
+	border-block: 1px solid var(--line);
+	font-size: 0.7rem;
+	font-weight: 850;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.score-card-secondary .round-progress {
+	margin-top: 0.6rem;
+}
+
+.round-progress span {
+	color: var(--muted);
+}
+
+.round-progress strong {
+	color: var(--gold);
+}
+
+

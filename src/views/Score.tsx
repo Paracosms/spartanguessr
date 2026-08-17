@@ -180,13 +180,3 @@ export default function Score() {
 		</main>
 	);
 }
-
-
-
-
-
-
-
-
-
-

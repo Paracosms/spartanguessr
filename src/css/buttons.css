@@ -1,0 +1,50 @@
+/* Buttons */
+
+.primary-action,
+.start-game-button,
+.guess-button,
+.qualification-card button {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 48px;
+	padding: 0.85rem 1.15rem;
+	border: 0;
+	border-radius: 8px;
+	background: var(--gold);
+	color: #071018;
+	font-size: 0.86rem;
+	font-weight: 900;
+	letter-spacing: 0.01em;
+	text-transform: none;
+	box-shadow: none;
+	transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.primary-action,
+.start-game-button,
+.guess-button {
+	width: 100%;
+}
+
+.primary-action:hover:not(:disabled),
+.start-game-button:hover:not(:disabled),
+.guess-button:hover:not(:disabled),
+.qualification-card button:hover:not(:disabled) {
+	transform: translateY(-1px);
+	background: #ffd044;
+	box-shadow: none;
+}
+
+.primary-action:active:not(:disabled),
+.start-game-button:active:not(:disabled),
+.guess-button:active:not(:disabled),
+.qualification-card button:active:not(:disabled) {
+	transform: translateY(1px);
+	background: #eeb300;
+}
+
+
+
+

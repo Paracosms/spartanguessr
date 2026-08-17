@@ -1,0 +1,59 @@
+/* Leaderboards */
+
+.landing-leaderboard-panel table,
+.leaderboard-card table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.leaderboard-period-tabs {
+	display: flex;
+	align-self: stretch;
+	align-items: stretch;
+	gap: clamp(1rem, 3vw, 2rem);
+	margin: 0;
+}
+
+.leaderboard-period-tabs button {
+	position: relative;
+	min-height: 46px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--muted);
+	font: inherit;
+	font-size: 0.88rem;
+	font-weight: 700;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: color 160ms ease;
+}
+
+.leaderboard-period-tabs button::after {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: var(--gold);
+	content: "";
+	transform: scaleX(0);
+	transform-origin: center;
+	transition: transform 160ms ease;
+}
+
+.leaderboard-period-tabs button:hover,
+.leaderboard-period-tabs button.is-active {
+	color: #fff;
+}
+
+.leaderboard-period-tabs button.is-active::after {
+	transform: scaleX(1);
+}
+
+.leaderboard-period-tabs button:focus-visible {
+	outline: 2px solid #fff;
+	outline-offset: 2px;
+}
+
+

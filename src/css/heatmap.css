@@ -1,0 +1,74 @@
+/* Heatmap */
+
+.map-page,
+.heatmap-page {
+	position: relative;
+	isolation: isolate;
+	display: grid;
+	width: 100vw;
+	height: 100dvh;
+	place-items: center;
+	overflow: hidden;
+	background: var(--navy-950);
+}
+
+.map-page::before,
+.heatmap-page::before {
+	position: fixed;
+	inset: 0;
+	z-index: -3;
+	background: url("../assets/backgrounds/LandingBackground.jpg") center 48% / cover no-repeat;
+	content: "";
+}
+
+.map-page::after,
+.heatmap-page::after {
+	position: fixed;
+	inset: 0;
+	z-index: -2;
+	background:
+		radial-gradient(circle at 18% 55%, rgba(17, 118, 185, 0.28), transparent 35%),
+		linear-gradient(100deg, rgba(2, 7, 13, 0.93) 0%, rgba(2, 7, 13, 0.75) 54%, rgba(2, 7, 13, 0.84) 100%);
+	content: "";
+}
+
+.heatmap-map {
+	display: grid;
+	place-items: center;
+}
+
+.heatmap-controls {
+	position: absolute;
+	right: 1rem;
+	bottom: 1rem;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.8rem 1rem;
+}
+
+.heatmap-controls > span {
+	display: flex;
+	flex-direction: column;
+}
+
+.heatmap-controls strong {
+	font-size: 0.68rem;
+	font-weight: 900;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.heatmap-controls small {
+	color: var(--muted);
+	font-size: 0.62rem;
+}
+
+.heatmap-controls input {
+	width: 130px;
+	cursor: pointer;
+	accent-color: var(--gold);
+}
+
+

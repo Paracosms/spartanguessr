@@ -1,4 +1,3 @@
-import './App.css';
 import Logo from "./assets/SpartanguessrLogo.png";
 import { useEffect } from "react";
 import LandingCenterPanel from "./components/LandingCenterPanel.tsx";
