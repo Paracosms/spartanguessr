@@ -554,8 +554,9 @@ def submit_guess():
             return jsonify({"error": "Missing coordinates"}), 400
 
         if session.round_deadline_at is not None and time.time() >= session.round_deadline_at:
-            guess_lat = TIMEOUT_COORDINATE
-            guess_lng = TIMEOUT_COORDINATE
+            if guess_lat == TIMEOUT_COORDINATE or guess_lng == TIMEOUT_COORDINATE:
+                guess_lat = TIMEOUT_COORDINATE
+                guess_lng = TIMEOUT_COORDINATE
 
         # Calculate distance and score
         score, distance_meters = score_algorithm(

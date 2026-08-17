@@ -5,6 +5,8 @@ import { ApiError, submitGuess } from "../utils/api.tsx";
 import { preloadNextRoundImage } from "../utils/preloadGameAssets.tsx";
 import { recordRoundResult } from "../utils/stats.ts";
 
+const TIMEOUT_COORDINATES = { x: 99999, y: 99999 };
+
 type GuessButtonProps = {
     session_id: string | null;
     image_url: string | null;
@@ -108,7 +110,7 @@ export default function GuessButton({
         }
 
         lastAutoSubmitSignal.current = autoSubmitSignal;
-        const timeoutCoordinates = coordinates ?? { x: 99999, y: 99999 };
+        const timeoutCoordinates = coordinates ?? TIMEOUT_COORDINATES;
         void Promise.resolve().then(() => sendToServer(timeoutCoordinates));
     }, [autoSubmitSignal, coordinates, sendToServer]);
 
