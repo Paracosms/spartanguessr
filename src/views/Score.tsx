@@ -103,11 +103,15 @@ export default function Score() {
 		try {
 			setIsStartingRound(true);
 			await preloadNextRoundImage(gameState.sessionId, nextRoundNumber);
-			await startRound(gameState.sessionId, nextRoundNumber);
+			const roundStart = await startRound(gameState.sessionId, nextRoundNumber);
 			navigate("/game", {
 				state: {
 					...gameState,
 					expectedRound: nextRoundNumber,
+					roundStart: {
+						roundNumber: roundStart.round_number,
+						deadlineAt: roundStart.round_deadline_at,
+					},
 				},
 			});
 		} catch (err) {

@@ -181,11 +181,15 @@ export default function LandingCenterPanel() {
             });
             recordGameStarted(result.session_id);
             await preloadNextRoundImage(result.session_id, result.current_round);
-            await startRound(result.session_id, result.current_round);
+            const roundStart = await startRound(result.session_id, result.current_round);
 
             const gameRouteState: NonNullable<GameRouteState> = {
                 sessionId: result.session_id,
                 expectedRound: result.current_round,
+                roundStart: {
+                    roundNumber: roundStart.round_number,
+                    deadlineAt: roundStart.round_deadline_at,
+                },
                 roundCount: effectiveSettings.round_count,
                 difficulty: levelToApiDifficulty(effectiveSettings.difficulty),
                 unlabeledMap: effectiveSettings.unlabeled_map,

@@ -19,6 +19,7 @@ const MOBILE_PORTRAIT_EXPANDED_HEIGHT_VH = 0.5;
 const MOBILE_VIEWPORT_GUTTER_PX = 16;
 const MOBILE_CONTROLS_RESERVED_HEIGHT_PX = 120;
 const PLAYTIME_CHECKPOINT_MS = 15_000;
+const ROUND_LOAD_RETRY_DELAYS_MS = [250, 1_000];
 
 type ViewportState = {
     width: number;
@@ -39,12 +40,37 @@ function getViewportState(): ViewportState {
     };
 }
 
+function isTransientRoundLoadError(err: unknown) {
+    return err instanceof ApiError && (
+        err.status === 0 ||
+        err.status === 409 ||
+        err.status === 429 ||
+        err.status >= 500
+    );
+}
+
+async function retryTransientRoundLoad<T>(request: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt += 1) {
+        try {
+            return await request();
+        } catch (err) {
+            const retryDelay = ROUND_LOAD_RETRY_DELAYS_MS[attempt];
+            if (retryDelay == null || !isTransientRoundLoadError(err)) {
+                throw err;
+            }
+
+            await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
+        }
+    }
+}
+
 export default function Game() {
     const [pinPosition, setPinPosition] = useState<Point | null>(null);
     const [roundNumber, setRoundNumber] = useState(1);
     const [roundImageUrl, setRoundImageUrl] = useState<string | null>(null);
     const [roundImageId, setRoundImageId] = useState<string | null>(null);
     const [roundDifficulty, setRoundDifficulty] = useState<ApiDifficulty | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [roundDeadlineAt, setRoundDeadlineAt] = useState<number | null>(null);
     const [autoSubmitSignal, setAutoSubmitSignal] = useState(0);
@@ -100,6 +126,7 @@ export default function Game() {
     const requestedRoundCount = gameState?.roundCount;
     const sessionId = gameState?.sessionId ?? null;
     const expectedRound = gameState?.expectedRound;
+    const preparedRoundStart = gameState?.roundStart;
     const maxRounds =
         typeof requestedRoundCount === "number" && requestedRoundCount > 0
             ? requestedRoundCount
@@ -114,6 +141,7 @@ export default function Game() {
     const gameNavigationState: NonNullable<GameRouteState> = {
         sessionId: sessionId ?? undefined,
         expectedRound,
+        roundStart: preparedRoundStart,
         roundCount: maxRounds,
         difficulty,
         outsideOnly,
@@ -141,33 +169,41 @@ export default function Game() {
         }
 
         try {
+            setLoadError(null);
             setRoundImageUrl(null);
-            const roundImage = expectedRound != null
-                ? await loadRoundImage(sessionId, expectedRound)
-                : await getRandomImage(sessionId);
+            const roundImage = await retryTransientRoundLoad(() => expectedRound != null
+                ? loadRoundImage(sessionId, expectedRound)
+                : getRandomImage(sessionId));
 
             if (roundImage.completed) {
                 return;
             }
 
-            const roundStart = await startRound(sessionId, roundImage.round_number);
+            const roundDeadline = preparedRoundStart?.roundNumber === roundImage.round_number
+                ? preparedRoundStart.deadlineAt
+                : (await retryTransientRoundLoad(
+                    () => startRound(sessionId, roundImage.round_number),
+                )).round_deadline_at;
 
             setRoundImageUrl(roundImage.image_url);
             setRoundImageId(roundImage.image_id);
             setRoundDifficulty(roundImage.difficulty);
             setRoundNumber(roundImage.round_number);
-            setRoundDeadlineAt(roundStart.round_deadline_at);
-            setTimeRemaining(roundStart.round_deadline_at == null
+            setRoundDeadlineAt(roundDeadline);
+            setTimeRemaining(roundDeadline == null
                 ? null
-                : Math.max(0, Math.ceil(roundStart.round_deadline_at - Date.now() / 1000)));
+                : Math.max(0, Math.ceil(roundDeadline - Date.now() / 1000)));
         } catch (err) {
             if (err instanceof ApiError && err.status === 404) {
                 navigate("/", { replace: true });
                 return;
             }
             console.error("FAIL", err);
+            setLoadError(err instanceof ApiError
+                ? err.message
+                : "Unable to load this round. Please try again.");
         }
-    }, [expectedRound, navigate, sessionId]);
+    }, [expectedRound, navigate, preparedRoundStart, sessionId]);
 
     useEffect(() => {
         if (!sessionId) {
@@ -303,6 +339,13 @@ export default function Game() {
                         }}
                     />
                 </>
+            ) : loadError ? (
+                <div className="game-loading" role="alert">
+                    <p>{loadError}</p>
+                    <button className="primary-action" type="button" onClick={() => void loadRandomImage()}>
+                        Try again
+                    </button>
+                </div>
             ) : (
                 <div className="game-loading" role="status">
                     <img className="loading-spear" src={Spear} alt="" />
